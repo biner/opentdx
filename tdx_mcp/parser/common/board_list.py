@@ -58,12 +58,7 @@ class BoardList(BaseParser):
 
         result = []
 
-        market_obj = MARKET
-        symbol_market_obj = MARKET
 
-        if isinstance(self.board_type, EX_BOARD_TYPE):
-            market_obj = EX_CATEGORY
-            symbol_market_obj = EX_CATEGORY
 
         for i in range(count):
             row_data = data[
@@ -90,7 +85,14 @@ class BoardList(BaseParser):
                 symbol_rise_speed,
                 symbol_pre_close,
             ) = struct.unpack(fmt, row_data[0:fmt_length])
+            
+            market_obj = MARKET
+            symbol_market_obj = MARKET
 
+            if isinstance(self.board_type, EX_BOARD_TYPE):
+                market_obj = EX_CATEGORY
+                symbol_market_obj = EX_CATEGORY
+            
             result.append(
                 {
                     "market": market_obj(market),

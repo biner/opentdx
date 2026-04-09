@@ -186,6 +186,7 @@ class MARKET(Enum):
     SZ = 0
     SH = 1
     BJ = 2
+    OT = 68
 
 class CATEGORY(Enum):
     SH = 0      # 上证A
@@ -423,6 +424,7 @@ class EX_MARKET(Enum):
 
 class EX_CATEGORY(Enum):
     TEMP_STOCK = 1                  # 临时股
+    
     ZZ_FUTURES_OPTION = 4           # 郑州商品期权
     DL_FUTURES_OPTION = 5           # 大连商品期权
     SH_FUTURES_OPTION = 6           # 上海商品期权

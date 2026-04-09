@@ -15,6 +15,36 @@ if __name__ == "__main__":
     
     client = QuotationClient()
     client.hosts = mixin_hosts
+    # MARKET.SH	880761	锂矿
+    client.connect().login()
+    board_symbol = str(CATEGORY.CYB.value)
+    # board_symbol = "880761"
+    rs = client.get_board_members_quotes(board_symbol=board_symbol,count=1)
+    # print(rs)
+
+    count = 40
+    symbol = '600900'
+    market = MARKET.SH
+    fq=ADJUST.QFQ
+    rs = client.get_symbol_bars(market, symbol, PERIOD.DAILY, count=count, fq=fq)
+    df = pd.DataFrame(rs)
+    df['换手'] = df['vol'] / (df['float_shares'] * 10000) * 100
+    df['换手'] = df['换手'].round(2).abs()
+    print(f"股票 {market} {symbol} {fq} 的前{count}个交易日行情数据如下:")
+    print(df)
+    exit()
+    
+    exClient = exQuotationClient()
+    exClient.hosts = ex_mixin_hosts
+    exClient.connect().login()
+
+    board_symbol = "US0401"
+    rs = exClient.get_board_members_quotes(board_symbol=board_symbol,count=2)
+    print(rs)
+
+    
+    exit()
+    
     if client.connect().login():
         symbol = '000100'
         market = MARKET.SZ
