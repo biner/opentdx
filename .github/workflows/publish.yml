@@ -12,6 +12,17 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Check if secret exists
+        run: |
+          if [ -n "${{ secrets.PYPI_API_TOKEN_DEV }}" ]; then
+            echo "Secret exists (length: ${#secret})"
+          else
+            echo "Secret is empty or not set"
+            exit 1
+          fi
+        env:
+          secret: ${{ secrets.PYPI_API_TOKEN_DEV }}
+    
       - uses: actions/checkout@v4
         with:
           ref: dev   # 强制检出 dev 分支
