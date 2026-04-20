@@ -13,7 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: dev   # 强制检出 dev 分支
 
+          
       - name: Change package name for dev release
         run: sed -i 's/^name = "opentdx"/name = "opentdx-dev"/' pyproject.toml
   
