@@ -2,7 +2,7 @@ from opentdx.client import macQuotationClient
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_BOARD_TYPE, EX_MARKET, MARKET, PERIOD, SORT_TYPE, SORT_ORDER
 import pandas as pd
 from opentdx.utils.help import industry_to_board_symbol, ah_code_to_symbol, lot_size_to_symbol
-from opentdx.utils.bitmap import PRESET_FIELDS
+from opentdx.utils.bitmap import FieldBit, PresetField
 
 class TestMacQuotationClientLogin:
     """登录"""
@@ -169,20 +169,20 @@ class TestMacQuotationClientBoardFields:
         
         print("支持自定义字段 ohlc")
 
-        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, fields='basic')
+        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, fields=PresetField.BASIC)
         df = pd.DataFrame(rs)
-  
-        for field in PRESET_FIELDS['basic']:
+        
+        for field in PresetField.BASIC.value:
             assert field in df.columns, f"字段 {field} 不在返回数据中"
             
     def test_list_fields(self, mqc:macQuotationClient):
         
         print("支持自定义字段 ohlc")
         category = CATEGORY.A
-        fields = ['pre_close','open','high','low','close','vol','amount','ah_code','lot_size','industry']
+        fields = [FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AMOUNT, FieldBit.AH_CODE, FieldBit.LOT_SIZE, FieldBit.INDUSTRY]
         rs = mqc.get_board_members_quotes(board_symbol=category,count=300, fields=fields)
         df = pd.DataFrame(rs)
-  
+
         for field in fields:
             assert field in df.columns, f"字段 {field} 不在返回数据中"
 
@@ -193,10 +193,8 @@ class TestMacQuotationClientExchange:
     def test_exchange_ah_code(self, mqc):
         
         print("支持自定义字段 ohlc , 增加ah_code , 查询881394板块")
-        ah_code_bit = 0x4a
-        lot_size_bit = 0x23
-        ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit)
-        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, filter=ah_code_filter)
+        fields = [FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE]
+        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, fields=fields)
         df = pd.DataFrame(rs)
         
         if 'ah_code' in df.columns:  # 正确的检查列是否存在的方式
@@ -221,13 +219,11 @@ class TestMacQuotationClientExchange:
     def test_exchange_dq_symbol(self, mqc):
         
         print("支持自定义字段 ohlc , 增加ah_code , 查询881394板块")
-        ah_code_bit = 0x4a
-        lot_size_bit = 0x23
-        ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit)
-        rs = mqc.get_board_members_quotes(board_symbol="881394", count=100, filter=ah_code_filter)
+        fields = [FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE]
+
+        rs = mqc.get_board_members_quotes(board_symbol="881394", count=100, fields=fields)
         df = pd.DataFrame(rs)
         
-
         if 'lot_size' in df.columns:  # 正确的检查列是否存在的方式
             df['dq_symbol'] = df.apply(lambda row: lot_size_to_symbol(row['lot_size']), axis=1)
             

@@ -66,8 +66,7 @@ def ah_code_to_symbol(ah_code:str, market:str) -> str:
         将ah_code转换为symbol, 补齐0
                         
         Example:
-            >>> ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 0x4a)
-                rs = client.get_board_members_quotes(board_symbol="881394",count=100, filter=ah_code_filter)
+            >>> rs = client.get_board_members_quotes(board_symbol="881394",count=100, fields=PresetField.AH_CODE)
                 df = pd.DataFrame(rs)
                 df['ah_symbol'] = df.apply(lambda row: ah_code_to_symbol(row['ah_code'], row['market']), axis=1)
     """

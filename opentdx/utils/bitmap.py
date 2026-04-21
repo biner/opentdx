@@ -1,4 +1,5 @@
 # coding=utf-8
+from enum import Enum, IntEnum
 from typing import Union, List
 from opentdx.utils.log import log
 
@@ -29,7 +30,7 @@ FIELD_BITMAP_MAP = {
     0x9: ("outside_volume", '<I', "外盘"),  # ✅ 920627验证：CSV外盘=24576, bitmap=24576 
     0xa: ("total_shares", '<f', "总股数(单位万)"),
     0xb: ("float_shares", '<f', "流通股(单位万)"), # 港股为H股数,也是流通股
-    0xc: ("EPS", '<f', "每股收益"), 
+    0xc: ("eps", '<f', "每股收益"), 
     0xd: ("net_assets", '<f', "净资产"),  # 
     0xe: ("unkonw_action_price", '<f', "未知价"),# （国内通常为3, 9,12） 美股港股与close相等
     0xf: ("total_market_cap_ab", '<f', "AB股总市值"),  # 港股代表H市值
@@ -42,7 +43,7 @@ FIELD_BITMAP_MAP = {
     0x14: ("server_update_time", '<I', "服务器更新时间 HHMMSS"),
     0x15: ("lot_size_info", '<I', "未确定"), # 港股 格式为 240000500 ,美股味 550000001  , 24/55不确定 500和1代表lot_size
     # 0x16: ("unknown_23", '<f', "未确定"),
-    0x17: ("DIVIDEND_YIELD", '<f', "股息"), 
+    0x17: ("dividend_yield", '<f', "股息"), 
     
     0x18: ("bid_volume", '<I', "买量"),
     0x19: ("ask_volume", '<I', "卖量"),
@@ -65,14 +66,13 @@ FIELD_BITMAP_MAP = {
     0x28: ("pe_ttm_vol_related", '<f', "市盈率TTM（与vol相关0.96，可能不是真正的PE TTM）"),  # ✅ 高相关
     0x29: ("ex_price_placeholder", '<f', "收盘价占位（与amount相关0.89，需验证）"),  # ⚠️ 中等相关
     0x2a: ("unknown_36_amount_related", '<f', "未知字段36（与amount相关0.90，需验证）"),  # ⚠️ 中等相关
-    0x2b: ("KCB_FLAG", '<I', "科创板标志 "), #688开头30101 #300开头50101
-    0x2c: ("BJ_FLAG", '<I', "北交所标志"),
+    0x2b: ("flag_kcb", '<I', "科创板标志 "), #688开头30101 #300开头50101
+    0x2c: ("flag_bj", '<I', "北交所标志"),
     0x2d: ("unknown_field_39_vol_related", '<f', "未知字段39（与vol相关0.99，高度相关）"),  # ✅ 高相关
 
     
     0x30: ("pe_ttm", '<f', "市盈率TTM"),
     0x31: ("pe_static", '<f', "市盈率静"),
-
     
     0x38: ("unknown_close_price", '<f', "美股字段"), 
 
@@ -99,139 +99,98 @@ FIELD_BITMAP_MAP = {
 
     0x57: ("open_amount", '<f', "开盘金额（元）"),  # ✅ 000100验证：CSV=1322.18万, bitmap=13221810元
 
-    0x59: ("ACTIVITY", '<I', "活跃度"), 
-    0x5c: ("CONSECUTIVE_UP_DAYS", '<i', "连涨天"), # 正数代表连涨，负数代表连跌 
+    0x59: ("activity", '<I', "活跃度"), 
+    0x5c: ("consecutive_up_days", '<i', "连涨天"), # 正数代表连涨，负数代表连跌 
     
-    0x6a: ("ACMOUNT_2M", '<f', "2分钟金额"), 
-
+    0x6a: ("amount_2m", '<f', "2分钟金额"), 
 }
 
-
-
-# 字段名到位位置的映射（从 FIELD_BITMAP_MAP 反向生成）
-FIELD_NAME_TO_BIT = {
-    "pre_close": 0x0,
-    "open": 0x1,
-    "high": 0x2,
-    "low": 0x3,
-    "close": 0x4,
-    "vol": 0x5,
-    "vol_ratio": 0x6,
-    "amount": 0x7,
-    "inside_volume": 0x8,
-    "outside_volume": 0x9,
-    "total_shares": 0xa,
-    "float_shares": 0xb,
-    "EPS": 0xc,
-    "net_assets": 0xd,
-    "unkonw_action_price": 0xe,
-    "total_market_cap_ab": 0xf,
-    "pe_dynamic": 0x10,
-    "bid": 0x11,
-    "ask": 0x12,
-    "server_update_date": 0x13,
-    "server_update_time": 0x14,
-    "lot_size_info": 0x15,
-    "DIVIDEND_YIELD": 0x17,
-    "bid_volume": 0x18,
-    "ask_volume": 0x19,
-    "last_volume": 0x1a,
-    "turnover": 0x1b,
-    "industry": 0x1c,
-    "industry_change_up": 0x1d,
-    "some_bitmap": 0x1e,
-    "decimal_point": 0x1f,
-    "buy_price_limit": 0x20,
-    "sell_price_limit": 0x21,
-    "unknown_34": 0x22,
-    "lot_size": 0x23,
-    "pre_ipov": 0x24,
-    "speed_pct": 0x25,
-    "avg_price": 0x26,
-    "ipov": 0x27,
-    "pe_ttm_vol_related": 0x28,
-    "ex_price_placeholder": 0x29,
-    "unknown_36_amount_related": 0x2a,
-    "KCB_FLAG": 0x2b,
-    "BJ_FLAG": 0x2c,
-    "unknown_field_39_vol_related": 0x2d,
-    "pe_ttm": 0x30,
-    "pe_static": 0x31,
-    "unknown_close_price": 0x38,
-    "change_20d_pct": 0x3b,
-    "ytd_pct": 0x3c,
-    "mtd_pct": 0x40,
-    "change_1y_pct": 0x41,
-    "prev_change_pct": 0x42,
-    "change_3d_pct": 0x43,
-    "change_60d_pct": 0x44,
-    "change_5d_pct": 0x45,
-    "change_10d_pct": 0x46,
-    "low_copy": 0x48,
-    "low_copy2": 0x49,
-    "ah_code": 0x4a,
-    "unknown_code": 0x4b,
-    "open_amount": 0x57,
-    "ACTIVITY": 0x59,
-    "CONSECUTIVE_UP_DAYS": 0x5c,
-    "ACMOUNT_2M": 0x6a,
-}
+class FieldBit(IntEnum):
+    PRE_CLOSE = 0x0
+    OPEN = 0x1
+    HIGH = 0x2
+    LOW = 0x3
+    CLOSE = 0x4
+    VOL = 0x5
+    VOL_RATIO = 0x6
+    AMOUNT = 0x7
+    INSIDE_VOLUME = 0x8
+    OUTSIDE_VOLUME = 0x9
+    TOTAL_SHARES = 0xa
+    FLOAT_SHARES = 0xb
+    EPS = 0xc
+    NET_ASSETS = 0xd
+    UNKONW_ACTION_PRICE = 0xe
+    TOTAL_MARKET_CAP_AB = 0xf
+    PE_DYNAMIC = 0x10
+    BID = 0x11
+    ASK = 0x12
+    SERVER_UPDATE_DATE = 0x13
+    SERVER_UPDATE_TIME = 0x14
+    LOT_SIZE_INFO = 0x15
+    UNKNOWN_22 = 0x16
+    DIVIDEND_YIELD = 0x17
+    BID_VOLUME = 0x18
+    ASK_VOLUME = 0x19
+    LAST_VOLUME = 0x1a
+    TURNOVER = 0x1b
+    INDUSTRY = 0x1c
+    INDUSTRY_CHANGE_UP = 0x1d
+    SOME_BITMAP = 0x1e
+    DECIMAL_POINT = 0x1f
+    BUY_PRICE_LIMIT = 0x20
+    SELL_PRICE_LIMIT = 0x21
+    UNKNOWN_34 = 0x22
+    LOT_SIZE = 0x23
+    PRE_IPOV = 0x24
+    SPEED_PCT = 0x25
+    AVG_PRICE = 0x26
+    IPOV = 0x27
+    PE_TTM_VOL_RELATED = 0x28
+    EX_PRICE_PLACEHOLDER = 0x29
+    UNKNOWN_36_AMOUNT_RELATED = 0x2a
+    FLAG_KCB = 0x2b
+    FLAG_BJ = 0x2c
+    UNKNOWN_FIELD_39_VOL_RELATED = 0x2d
+    PE_TTM = 0x30
+    PE_STATIC = 0x31
+    UNKNOWN_CLOSE_PRICE = 0x38
+    CHANGE_20D_PCT = 0x3b
+    YTD_PCT = 0x3c
+    MTD_PCT = 0x40
+    CHANGE_1Y_PCT = 0x41
+    PREV_CHANGE_PCT = 0x42
+    CHANGE_3D_PCT = 0x43
+    CHANGE_60D_PCT = 0x44
+    CHANGE_5D_PCT = 0x45
+    CHANGE_10D_PCT = 0x46
+    LOW_COPY = 0x48
+    LOW_COPY2 = 0x49
+    AH_CODE = 0x4a
+    UNKNOWN_CODE = 0x4b
+    OPEN_AMOUNT = 0x57
+    ACTIVITY = 0x59
+    CONSECUTIVE_UP_DAYS = 0x5c
+    AMOUNT_2M = 0x6a
 
 # 预定义字段集合（快捷方式）
-PRESET_FIELDS = {
-    "basic": ["pre_close", "open", "high", "low", "close", "vol"],          # 基础行情
-    "quote": ["bid", "ask", "bid_volume", "ask_volume", "last_volume"],     # 盘口
-    "volume": ["vol", "amount", "turnover", "vol_ratio"],                   # 量能
-    "fundamental": ["total_shares", "float_shares", "EPS", "net_assets"],   # 基本面
-    "valuation": ["pe_ttm", "pe_static", "total_market_cap_ab"],            # 估值
-    "change": ["change_5d_pct", "change_10d_pct", "change_20d_pct", "change_60d_pct", "ytd_pct", "mtd_pct", "prev_change_pct"],
-    "limit": ["buy_price_limit", "sell_price_limit"],                       # 涨跌停
-    "all": list(FIELD_NAME_TO_BIT.keys()),                                  # 全部字段（注意：可能请求过多数据）
-}
+class PresetField(Enum):
+    BASIC = (FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL)
+    QUOTE = (FieldBit.BID, FieldBit.ASK, FieldBit.BID_VOLUME, FieldBit.ASK_VOLUME, FieldBit.LAST_VOLUME)
+    VOLUME = (FieldBit.VOL, FieldBit.AMOUNT, FieldBit.TURNOVER, FieldBit.VOL_RATIO)
+    FUNDAMENTAL = (FieldBit.TOTAL_SHARES, FieldBit.FLOAT_SHARES, FieldBit.EPS, FieldBit.NET_ASSETS)
+    VALUATION = (FieldBit.PE_TTM, FieldBit.PE_STATIC, FieldBit.TOTAL_MARKET_CAP_AB)
+    CHANGE = (FieldBit.CHANGE_5D_PCT, FieldBit.CHANGE_10D_PCT, FieldBit.CHANGE_20D_PCT, FieldBit.CHANGE_60D_PCT,
+                FieldBit.YTD_PCT, FieldBit.MTD_PCT, FieldBit.PREV_CHANGE_PCT)
+    LIMIT = (FieldBit.BUY_PRICE_LIMIT, FieldBit.SELL_PRICE_LIMIT)
 
-def fields_to_filter(field_names: Union[str, List[str]]) -> int:
-    """
-    将字段名列表（或预定义集合名）转换为 filter 整数位掩码
-    
-    Args:
-        field_names: 可以是字段名列表，或预定义集合的键（如 'basic'），
-                     或使用 '+' 连接的组合字符串，如 'basic+quote'
-    
-    Returns:
-        整数位掩码，每一位代表一个字段位位置
-    """
-    if isinstance(field_names, str):
-        if '+' in field_names:
-            parts = field_names.split('+')
-            names = []
-            for part in parts:
-                if part in PRESET_FIELDS:
-                    names.extend(PRESET_FIELDS[part])
-                else:
-                    names.append(part)
-        elif field_names in PRESET_FIELDS:
-            names = PRESET_FIELDS[field_names]
-        else:
-            names = [field_names]
-    else:
-        names = field_names
-    
-    filter_val = 0
-    for name in names:
-        if name in FIELD_NAME_TO_BIT:
-            bit_pos = FIELD_NAME_TO_BIT[name]
-            filter_val |= (1 << bit_pos)
-        else:
-            log.warning(f"未知字段名: {name}，已忽略")
-    return filter_val
-
-
-def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
-    bitmap_int = int.from_bytes(bitmap_bytes, 'little')
-    active_bits = []
-    while bitmap_int:
-        lowbit = bitmap_int & -bitmap_int          # 取最低位的1
-        bit_pos = lowbit.bit_length() - 1          # 计算位置
-        active_bits.append(bit_pos)
-        bitmap_int ^= lowbit                       # 清除该位
-    return active_bits
+    ENHANCED = (FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.FLOAT_SHARES, FieldBit.ACTIVITY)
+    AH_CODE = (FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE, FieldBit.INDUSTRY)
+    COMMON = (FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL,
+                FieldBit.VOL_RATIO, FieldBit.AMOUNT, FieldBit.TOTAL_SHARES, FieldBit.FLOAT_SHARES, FieldBit.EPS,
+                FieldBit.NET_ASSETS, FieldBit.UNKONW_ACTION_PRICE, FieldBit.TOTAL_MARKET_CAP_AB, FieldBit.PE_DYNAMIC,
+                FieldBit.LOT_SIZE_INFO, FieldBit.UNKNOWN_22, FieldBit.DIVIDEND_YIELD, FieldBit.LAST_VOLUME,
+                FieldBit.TURNOVER, FieldBit.SOME_BITMAP, FieldBit.DECIMAL_POINT, FieldBit.BUY_PRICE_LIMIT,
+                FieldBit.SELL_PRICE_LIMIT, FieldBit.UNKNOWN_34, FieldBit.LOT_SIZE, FieldBit.PRE_IPOV,
+                FieldBit.SPEED_PCT, FieldBit.FLAG_KCB, FieldBit.PE_TTM, FieldBit.PE_STATIC, FieldBit.UNKNOWN_CLOSE_PRICE)
+    ALL = tuple(FieldBit)

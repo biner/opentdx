@@ -6,7 +6,7 @@ from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
 from opentdx.parser.mac_quotation import BoardCount, BoardList, BoardMembers, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import fields_to_filter
+from opentdx.utils.bitmap import FieldBit, PresetField
 from functools import wraps
 
 
@@ -90,10 +90,9 @@ class CommonClientMixin:
     @require_sp_mode
     @update_last_ack_time
     def get_board_members_quotes(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000, 
-                                 sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT, 
-                                 sort_order=SORT_ORDER.DESC, 
-                                 fields: Optional[Union[str, List[str]]] = None,   # 新增：友好字段选择
-                                 filter=0):
+                                sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT, 
+                                sort_order=SORT_ORDER.DESC, 
+                                fields: list[FieldBit] | PresetField = PresetField.ALL):
         """
         获取板块成分股的实时行情报价
         
@@ -174,20 +173,9 @@ class CommonClientMixin:
         msg = f"TDX 板块成分报价：{board_symbol} 查询总量{count}"
         log.debug(msg)
         
-        if fields is not None:
-            filter_val = fields_to_filter(fields)
-        else:
-            filter_val = filter
-            
-        # 生成20字节位图
-        if filter_val == 0:
-            # 默认使用 basic 字段集（基础五档+成交量）
-            filter_val = fields_to_filter("basic")
-            
-        
         for start in range(0, count, MAX_LIST_COUNT):
             current_count = min(MAX_LIST_COUNT, count - start)
-            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, filter=filter_val))
+            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, fields=fields))
             part = rs["stocks"]
             
             if len(part) > 0:
@@ -221,25 +209,17 @@ class CommonClientMixin:
                 
 
         """
-        # ACTIVITY 字段的位位置是 0x59 (89)
-        ACTIVITY_BIT = 0x59
-        FLOAT_SHARES= 0xb
-        # 在用户提供的 filter 基础上，启用 ACTIVITY 字段
-        enhanced_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ACTIVITY_BIT) | (1 << FLOAT_SHARES)
-
-        
-        
         return self.get_board_members_quotes(
             board_symbol=board_symbol,
             count=count,
             sort_type=SORT_TYPE.ACTIVITY,
             sort_order=SORT_ORDER.DESC,
-            filter=enhanced_filter
+            fields=PresetField.ENHANCED
         )
 
     @require_sp_mode
     @update_last_ack_time
-    def get_board_members(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000, sort_type: SORT_TYPE = SORT_TYPE.CODE, sort_order=SORT_ORDER.NONE, filter=0):
+    def get_board_members(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000, sort_type: SORT_TYPE = SORT_TYPE.CODE, sort_order=SORT_ORDER.NONE):
         """
         获取板块成分股列表
         
@@ -292,7 +272,7 @@ class CommonClientMixin:
         
         for start in range(0, count, MAX_LIST_COUNT):
             current_count = min(MAX_LIST_COUNT, count - start)
-            rs = self.call(BoardMembers(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, filter=filter))
+            rs = self.call(BoardMembers(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order))
             part = rs["stocks"]
             
             if len(part) > 0:
