@@ -1,5 +1,4 @@
 import struct
-from typing import Union
 from opentdx._typing import override
 
 from opentdx.const import BOARD_TYPE, EX_BOARD_TYPE, EX_MARKET, MARKET
@@ -10,19 +9,27 @@ from opentdx.parser.baseParser import BaseParser, register_parser
 class BoardCount(BaseParser):
     def __init__(
         self,
-        board_type: Union[BOARD_TYPE, EX_BOARD_TYPE] = BOARD_TYPE.ALL,
+        board_type: int | BOARD_TYPE | EX_BOARD_TYPE = BOARD_TYPE.ALL,
         start: int = 0,
         page_size: int = 150,
     ):
-        self.board_type = board_type
+        if isinstance(board_type, int):
+            board_code = board_type
+        else:
+            board_code = board_type.value
+
+        
+        self.board_type = board_code
+
         sort_column = 0  # 排序字段? 取不同的值会影响 等于0时候代表rise_speed
         sort_order = 1  # 不确定 sort_column 和 sort_order 具体如何联动
         self.body = struct.pack(
-            "<HHBBHH8x", page_size, board_type.value, sort_column, sort_order, start, 1
+            "<HHBBHH8x", page_size, board_code, sort_column, sort_order, start, 1
         )
 
     @override
     def deserialize(self, data):
+
         header_length = 4
         count_all, total = struct.unpack("<HH", data[:header_length])
 
@@ -34,16 +41,21 @@ class BoardCount(BaseParser):
 class BoardList(BaseParser):
     def __init__(
         self,
-        board_type: Union[BOARD_TYPE] = BOARD_TYPE.ALL,
+        board_type: int | BOARD_TYPE | EX_BOARD_TYPE = BOARD_TYPE.ALL,
         start: int = 0,
         page_size: int = 150,
     ):
-        self.board_type = board_type
+        if isinstance(board_type, int):
+            board_code = board_type
+        else:
+            board_code = board_type.value
+        
+        self.board_type = board_code
 
         sort_column = 0  # 排序字段? 取不同的值会影响 等于0时候代表rise_speed
         sort_order = 1  # 不确定 sort_column 和 sort_order 具体如何联动
         self.body = struct.pack(
-            "<HHBBHH8x", page_size, board_type.value, sort_column, sort_order, start, 1
+            "<HHBBHH8x", page_size, board_code, sort_column, sort_order, start, 1
         )
 
     @override
@@ -58,13 +70,9 @@ class BoardList(BaseParser):
         # print(count_all, total)
 
         result = []
-
-        market_obj = MARKET
-        symbol_market_obj = MARKET
-
-        if isinstance(self.board_type, EX_BOARD_TYPE):
-            market_obj = EX_MARKET
-            symbol_market_obj = EX_MARKET
+        
+        fmt = "<H6s16x44sfff   H6s16x44sfff"
+        fmt_length = struct.calcsize(fmt)
 
         for i in range(count):
             row_data = data[
@@ -72,9 +80,6 @@ class BoardList(BaseParser):
             ]
             if len(row_data) < row_length:
                 continue
-
-            fmt = "<H6s16x44sfff   H6s16x44sfff"
-            fmt_length = struct.calcsize(fmt)
 
             (
                 market,
@@ -93,13 +98,13 @@ class BoardList(BaseParser):
 
             result.append(
                 {
-                    "market": market_obj(market),
+                    "market": MARKET(market) if market <=3 else EX_MARKET(market),
                     "code": code.decode("gbk").replace("\x00", ""),
                     "name": name.decode("gbk").replace("\x00", ""),
                     "price": price,
                     "rise_speed": rise_speed,
                     "pre_close": pre_close,
-                    "symbol_market": symbol_market_obj(symbol_market),
+                    "symbol_market": MARKET(symbol_market) if symbol_market <=3 else EX_MARKET(symbol_market),
                     "symbol_code": symbol_code.decode("gbk").replace("\x00", ""),
                     "symbol_name": symbol_name.decode("gbk").replace("\x00", ""),
                     "symbol_price": symbol_price,

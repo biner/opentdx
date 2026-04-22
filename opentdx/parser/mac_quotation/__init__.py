@@ -3,6 +3,8 @@ from .board_members import BoardMembers
 from .board_members_quotes import BoardMembersQuotes
 from .symbol_belong_board import SymbolBelongBoard
 from .symbol_bar import SymbolBar
+from .symbol_zjlx import SymbolZJLX
+from .market_monitor import MarketMonitor
 
 __all__ = [
     "BoardCount",
@@ -11,4 +13,6 @@ __all__ = [
     "BoardMembersQuotes",   
     "SymbolBelongBoard",
     "SymbolBar",
+    "SymbolZJLX",
+    "MarketMonitor",
 ]

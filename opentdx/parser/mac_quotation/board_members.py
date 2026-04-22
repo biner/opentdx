@@ -2,6 +2,7 @@ import struct
 from opentdx._typing import override
 
 from opentdx.parser.baseParser import BaseParser, register_parser
+from opentdx.const import CATEGORY, EX_CATEGORY, MARKET,EX_MARKET, SORT_ORDER, SORT_TYPE
 from opentdx.utils.help import exchange_board_code
 
 
@@ -9,76 +10,49 @@ from opentdx.utils.help import exchange_board_code
 class BoardMembers(BaseParser):
     def __init__(
         self,
-        board_symbol: str = "881001",
-        sort_type=14,
+        board_symbol: str | CATEGORY | EX_CATEGORY = "881001",
+        sort_type: int | SORT_TYPE = 0xe,
         start: int = 0,
         page_size: int = 80,
-        sort_order: bool = 1,
+        sort_order: SORT_ORDER = SORT_ORDER.NONE
     ):
-        # sort_order = 0 不排序,默认symbol, 不为0时候根据 sort_type 排序,sort_order = 1 升序, sort_order = 2 降序
-
-        board_code = exchange_board_code(board_symbol)
-
-        self.body = struct.pack("<I9x", board_code)
-        # 基础参数
-        params = struct.pack("<HIBBH", sort_type, start, page_size, 0, sort_order)
-        # 额外参数, 会根据传入的值不同,返回值的数量不同. 例如只传0,则只会返回 symbol 和 symbol_name
-        # pkg = bytearray.fromhex('00ff fce1 cc3f 0803 0100 0000 0000 0000 0000 0000 00')
-        pkg = bytearray.fromhex("00 0000 0000 0000 0000 0000 0000 0000 0000 0000 00")
-
-        self.body = self.body + params + pkg
+        
+        board_code = exchange_board_code(board_symbol) if isinstance(board_symbol, str) else board_symbol.code
+        sort_type_code = sort_type if isinstance(sort_type, int) else sort_type.value
+        
+        self.body = struct.pack("<I9xHIBBBB", board_code, sort_type_code, start, page_size, 0, sort_order.value, 0)
+        
+        # 位图配置：20字节，每一位代表一个字段是否存在
+        # 全传0, 只查板块的成员,通过 board_members 查询
+        bitmap = bytearray(20)
+        
+        self.body = self.body + bitmap
 
     @override
     def deserialize(self, data):
-
-        pos = 0
-        header_length = 26
-        header = data[:header_length]
-
-        # 执行unpack解析
-        (
-            req,
-            name_raw,
-            total,  # 总行数标识 (4字节int)
-            row_count,  # 数据类型标识 (2字节int)
-        ) = struct.unpack("<16s4sIH", header)
-
-        main_name = name_raw.decode("gbk").replace("\x00", "")
-        pos += header_length
-        row_lenght = 68
+        field_bitmap = data[:20]  # 前20字节是字段位图
+        total, row_count = struct.unpack("<IH", data[20:26])  # 接着是总行数和当前返回行数
 
         stocks = []
         for i in range(row_count):
-            price_pos = 0
-            row_data = data[pos : pos + row_lenght]
+            row_data = data[26 + i * 68 : 26 + (i + 1) * 68]
 
-            market, code, active1, name_raw = struct.unpack(
-                "<H6s16s16s", row_data[0 : price_pos + 40]
-            )
+            market, symbol, name = struct.unpack("<H22s44s", row_data[:68])
+            # 目前MARKET 为 0 , 1, 2 
+            try:
+                market = MARKET(market) if market <= 3 else  EX_MARKET(market)
+            except Exception as e:
+                print(f"[ERROR] 解析市场信息出错: {e}")
+                market = EX_MARKET.TEMP_STOCK
 
-            name = name_raw.decode("gbk").replace("\x00", "")
-            code = code.decode("ascii").replace("\x00", "")
-            # c = 0
-            # for price_i in range(base_row_lenght, row_lenght, 4):
-            #     c += 1
-            #     print(c, struct.unpack('<f', row_data[price_i:price_i+4])[0])
-
-            if len(row_data) < 1:
-                continue
-
-            stocks.append(
-                {
-                    "name": name,
-                    "market": market,
-                    "symbol": code,
-                }
-            )
-
-            pos += row_lenght
+            stocks.append({
+                "market": market,
+                "symbol": symbol.decode("gbk", errors="ignore").replace("\x00", ""),
+                "name": name.decode("gbk", errors="ignore").replace("\x00", ""),
+            })
 
         result = {
-            "req": req,
-            "name": main_name,
+            "field_bitmap": field_bitmap,
             "count": row_count,
             "total": total,
             "stocks": stocks,
