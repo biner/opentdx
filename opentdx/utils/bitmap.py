@@ -1,8 +1,14 @@
 # coding=utf-8
+import struct
 from typing import Union, List
+from opentdx.const import EX_MARKET, MARKET
 from opentdx.utils.log import log
 
+SYMBOL_QUOTES_DEFAULT_HEX = "ffbc81cc3f080300000000000000000000000000"
+BOARD_MEMBERS_QUOTES_DEFAULT_HEX = "fffce1cc3f080301000000000000000000000000"
 
+QUOTES_DEBUG_HEX =     "ff ff ff ff ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00"
+QUOTES_DEBUG_ALL_HEX = "ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff"
 # 定义字段位图映射 (根据 TDX 协议定义)
 # 每一位代表一个4字节的字段是否存在
 # 通过对比静态解析和动态解析验证得出（基于实测数据）
@@ -235,3 +241,22 @@ def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
         active_bits.append(bit_pos)
         bitmap_int ^= lowbit                       # 清除该位
     return active_bits
+
+
+def parse_row_header(row_data: bytes) -> dict:
+    """
+    解析行数据的头部信息（前68字节）
+    """
+    header_format = "<H22s44s"
+    market_code, code_bytes, name_bytes = struct.unpack(header_format, row_data[:68])
+    code = code_bytes.decode("gbk", errors="ignore").replace("\x00", "")
+    name = name_bytes.decode("gbk", errors="ignore").replace("\x00", "")
+    try:
+        if market_code <= 3:
+            market = MARKET(market_code)
+        else:
+            market = EX_MARKET(market_code)
+    except Exception as e:
+        log.error(f"解析市场信息出错: {e}")
+        market = EX_MARKET.TEMP_STOCK
+    return {"name": name, "market": market, "symbol": code}

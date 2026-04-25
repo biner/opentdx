@@ -1,11 +1,11 @@
-from typing import Union, List,  Optional
+from typing import Tuple, Union, List,  Optional
 
 import pandas as pd
 
 from datetime import date
 from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
-from opentdx.parser.mac_quotation import BoardCount, BoardList, BoardMembers, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart
+from opentdx.parser.mac_quotation import BoardCount, BoardList, BoardMembers, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes
 from opentdx.utils.log import log
 from opentdx.utils.bitmap import fields_to_filter
 from functools import wraps
@@ -537,3 +537,11 @@ class CommonClientMixin:
             - chart_data 包含分时图数据，仅在实时行情时返回
         """
         return self.call(SymbolTickChart(market=market, code=code, query_date=query_date))
+    
+    @require_sp_mode    
+    @update_last_ack_time
+    def get_symbol_quotes(
+        self, 
+        symbol_list: List[Tuple[MARKET | EX_MARKET, str]],
+    ):
+        return self.call(SymbolQuotes(symbol_list=symbol_list))

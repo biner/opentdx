@@ -308,6 +308,19 @@ class TestMacQuotationClientExchange:
 class TestMacQuotationClientTickChart:
     """分时图 API - 真实请求测试"""
 
+    def test_get_symbol_quotes(self, mqc:macQuotationClient):
+        """测试A股的股票信息"""
+        code_list = [
+            (MARKET.SZ, '000001'),
+            (MARKET.SH, '688808'),
+            (MARKET.SZ, '000999')
+            
+        ]
+        print(code_list)
+        result = mqc.get_symbol_quotes(code_list)
+        df = pd.DataFrame(result['stocks'])
+        print(result['stocks'])
+        
     def test_get_symbol_tick_chart_stock_basic(self, mqc):
         """测试A股基本分时图数据获取"""
         result = mqc.get_symbol_tick_chart(MARKET.SZ, '000001')

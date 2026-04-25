@@ -6,6 +6,7 @@ from .symbol_bar import SymbolBar
 from .symbol_zjlx import SymbolZJLX
 from .market_monitor import MarketMonitor
 from .symbol_tick_chart import SymbolTickChart
+from .symbol_quotes import SymbolQuotes
 
 __all__ = [
     "BoardCount",
@@ -17,4 +18,5 @@ __all__ = [
     "SymbolZJLX",
     "MarketMonitor",
     "SymbolTickChart",
+    "SymbolQuotes",
 ]

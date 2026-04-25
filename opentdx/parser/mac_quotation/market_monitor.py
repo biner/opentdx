@@ -15,10 +15,11 @@ class MarketMonitor(BaseParser): # 主力监控
     def __init__(self, market: MARKET, start: int, count: int = 600):
         # pkg = bytearray.fromhex('0200 8301 0000 1e00 0000 0100 0000 0000 0000 0000 0000')
         # self.body = pkg
-        self.body = struct.pack('<H H 2x H 2x H 10x', market.value, start,  count, 1)
+        self.body = struct.pack('<H H 2x H 2x H 5H', market.value, start,  count, 1, 200,30,40,50,200)
         
     @override
     def deserialize(self, data):
+        print(data)
         count,  = struct.unpack('<H', data[:2])
         results = []
         for i in range(count):
