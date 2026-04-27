@@ -1,12 +1,13 @@
-from typing import Union, List,  Optional
+from typing import Tuple, Union, List,  Optional
 
 import pandas as pd
 
+from datetime import date
 from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
-from opentdx.parser.mac_quotation import BoardCount, BoardList, BoardMembers, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX
+from opentdx.parser.mac_quotation import BoardCount, BoardList, BoardMembers, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes, SymbolTransaction
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import FieldBit, PresetField
+from opentdx.utils.bitmap import FieldBit, PresetField, convert_fields_to_filter
 from functools import wraps
 
 
@@ -89,10 +90,13 @@ class CommonClientMixin:
 
     @require_sp_mode
     @update_last_ack_time
-    def get_board_members_quotes(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000, 
-                                sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT, 
-                                sort_order=SORT_ORDER.DESC, 
-                                fields: list[FieldBit] | PresetField = PresetField.ALL):
+    def get_board_members_quotes(
+        self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000, 
+        sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT, 
+        sort_order=SORT_ORDER.DESC, 
+        fields: list[FieldBit] | PresetField | None = None,
+        filter=0
+    ):
         """
         获取板块成分股的实时行情报价
         
@@ -173,9 +177,15 @@ class CommonClientMixin:
         msg = f"TDX 板块成分报价：{board_symbol} 查询总量{count}"
         log.debug(msg)
         
+        # 如果 fields 参数不为 None，将其转换为 filter
+        if fields is not None:
+            filter = convert_fields_to_filter(fields)
+            log.debug(f"fields 转换为 filter: {filter:#x}")
+
+            
         for start in range(0, count, MAX_LIST_COUNT):
             current_count = min(MAX_LIST_COUNT, count - start)
-            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, fields=fields))
+            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, filter=filter))
             part = rs["stocks"]
             
             if len(part) > 0:
@@ -214,7 +224,7 @@ class CommonClientMixin:
             count=count,
             sort_type=SORT_TYPE.ACTIVITY,
             sort_order=SORT_ORDER.DESC,
-            fields=PresetField.ENHANCED
+            fields=PresetField.ENHANCED,
         )
 
     @require_sp_mode
@@ -441,3 +451,211 @@ class CommonClientMixin:
                 break
 
         return security_list
+    
+    @require_sp_mode    
+    @update_last_ack_time
+    def get_symbol_tick_chart(
+        self, market: MARKET | EX_MARKET, code: str, query_date : date = None
+    ):
+        """
+        获取指定股票的分时行情,240根k线(支持指定日期)
+        
+        获取单个股票或证券的实时行情数据，包括价格、成交量、买卖盘口等信息。
+        
+        Args:
+            market: 市场类型，支持普通市场和扩展市场
+                - MARKET: 普通市场枚举（如 MARKET.SH, MARKET.SZ）
+                - EX_MARKET: 扩展市场枚举（如 EX_MARKET.BJ, EX_MARKET.HK）
+            code: 证券代码，字符串格式
+                - A股: "000001"（平安银行）、"600000"（浦发银行）
+                - 港股: "00700"（腾讯控股）
+                - 美股: "AAPL"（苹果公司）
+            query_date: 查询日期，可选参数
+                - None: 获取实时行情（默认）
+                - date对象: 获取指定日期的历史行情
+            
+        Returns:
+            dict: 包含证券实时行情数据的字典，包含以下字段：
+                - market: 市场代码（整数）
+                - code: 证券代码（字符串）
+                - name: 证券名称（字符串）
+                - decimal: 小数位数（整数）
+                - category: 证券类别（整数）
+                - vol_unit: 成交量单位（浮点数）
+                - time: 数据时间戳（datetime对象）
+                - pre_close: 昨收价（浮点数）
+                - open: 开盘价（浮点数）
+                - high: 最高价（浮点数）
+                - low: 最低价（浮点数）
+                - close: 收盘价/当前价（浮点数）
+                - momentum: 涨跌额（浮点数）
+                - vol: 成交量（整数）
+                - amount: 成交额（浮点数）
+                - turnover: 换手率（浮点数）
+                - avg: 均价（浮点数）
+                - industry: 所属行业名称（字符串）
+                - industry_code: 行业板块代码（字符串）
+                - chart_data: 分时图数据列表，每个元素包含：
+                    - time: 时间点（time对象）
+                    - price: 价格（浮点数）
+                    - avg: 均价（浮点数）
+                    - vol: 成交量（整数）
+                    - momentum: 动量（浮点数）
+                
+        Example:
+            >>> # 获取平安银行实时行情
+            >>> quote = client.get_symbol_quotes(MARKET.SZ, "000001")
+            >>> print(f"{quote['name']}: {quote['close']}")
+            >>> 
+            >>> # 获取腾讯控股实时行情
+            >>> hk_quote = client.get_symbol_quotes(EX_MARKET.HK, "00700")
+            >>> 
+            >>> # 获取指定日期的历史行情
+            >>> from datetime import date
+            >>> historical_quote = client.get_symbol_quotes(
+            ...     MARKET.SH, 
+            ...     "600000", 
+            ...     query_date=date(2024, 1, 15)
+            ... )
+            >>> print(f"2024-01-15 收盘价: {historical_quote['close']}")
+        Note:
+            - 此方法必须在 SP 模式下使用（需先调用 sp() 方法）
+            - 返回的是实时行情数据，价格会随市场变化
+            - 如果证券不存在或停牌，可能返回空数据或部分字段为空
+            - query_date 参数用于获取历史行情，不传则获取实时数据
+            - chart_data 包含分时图数据，仅在实时行情时返回
+        """
+        return self.call(SymbolTickChart(market=market, code=code, query_date=query_date))
+    
+    @require_sp_mode    
+    @update_last_ack_time
+    def get_symbol_quotes(
+        self, 
+        code_list: List[Tuple[MARKET | EX_MARKET, str]],
+        fields: list[FieldBit] | PresetField | None = None,
+        filter=0
+    ):
+        """
+        获取多个股票的实时行情报价
+        
+        Args:
+            code_list: 股票代码列表，每个元素为 (market, code) 元组
+            fields: 字段选择，可以是：
+                    - None: 使用默认字段
+                    - list[FieldBit]: FieldBit 枚举列表
+                    - PresetField: 预定义字段集合枚举
+            filter: 过滤条件位掩码，当 fields 为 None 时使用
+            
+        Returns:
+            dict: 包含 field_bitmap、count、stocks 的字典
+        """
+        # 如果 fields 参数不为 None，将其转换为 filter
+        if fields is not None:
+            filter = convert_fields_to_filter(fields)
+            log.debug(f"fields 转换为 filter: {filter:#x}")
+            
+
+            
+        return self.call(SymbolQuotes(code_list=code_list, filter=filter))
+
+    @require_sp_mode    
+    @update_last_ack_time
+    def get_symbol_transactions(
+        self, 
+        market: MARKET | EX_MARKET, 
+        code: str, 
+        count: int = 1000, 
+        start: int = 0, 
+        query_date: date = None
+    ) -> dict:
+        """
+        获取股票逐笔成交数据
+        
+        分页获取指定股票的逐笔成交明细数据，支持查询历史日期的成交数据。
+        
+        Args:
+            market: 市场类型，支持A股市场和扩展市场
+                - MARKET.SH: 上海证券交易所
+                - MARKET.SZ: 深圳证券交易所  
+                - EX_MARKET.HK: 港股市场
+                - EX_MARKET.US: 美股市场
+                - 其他市场类型参见 MARKET 和 EX_MARKET 枚举
+            code: 股票代码，如 "000001"（平安银行）、"600000"（浦发银行）
+                - A股代码格式：6位数字
+                - 港股代码格式：5位数字（可能以0开头）
+                - 美股代码格式：字母组成
+            count: 需要获取的成交笔数，默认1000
+                - 每次请求最多可获取的笔数受服务器限制
+            start: 起始位置，默认为0（从第一笔成交开始获取）
+                - 用于分页查询历史成交数据
+            query_date: 查询日期，可选参数
+                - None: 获取当日实时成交数据（默认）
+                - date对象: 获取指定日期的历史成交数据
+                
+        Returns:
+            dict: 包含逐笔成交数据的字典，包含以下字段：
+                - market: 市场代码（整数）
+                - code: 证券代码（字符串）
+                - query_date: 查询日期（整数，格式YYYYMMDD）
+                - count: 实际返回的成交笔数（整数）
+                - start: 起始位置（整数）
+                - total: 总成交笔数（整数）
+                - transactions: 逐笔成交列表，每个元素包含：
+                    - time: 成交时间（字符串，格式 "HH:MM:SS"）
+                    - price: 成交价格（浮点数）
+                    - volume: 成交量（整数，单位：手）
+                    - trade_count: 成交笔数（整数）
+                    - bs_flag: 买卖方向标志（整数）
+                        - 0: 买入
+                        - 1: 卖出
+                        - 2: 中性盘
+                        - 5: 盘后交易
+                        
+        Example:
+            >>> # 获取平安银行当日最新100笔成交
+            >>> result = client.get_symbol_transactions(MARKET.SZ, '000001', count=100)
+            >>> print(f"共获取 {result['count']} 笔成交")
+            >>> for tx in result['transactions'][:5]:
+            ...     print(f"{tx['time']} 价格:{tx['price']} 成交量:{tx['volume']}")
+            >>> 
+            >>> # 获取贵州茅台的历史成交数据
+            >>> from datetime import date
+            >>> result = client.get_symbol_transactions(
+            ...     MARKET.SH, 
+            ...     '600519', 
+            ...     count=200, 
+            ...     query_date=date(2024, 1, 15)
+            ... )
+            >>> print(f"2024-01-15 共 {result['total']} 笔成交")
+            >>> 
+            >>> # 分页获取大量成交数据
+            >>> all_transactions = []
+            >>> start = 0
+            >>> while True:
+            ...     result = client.get_symbol_transactions(
+            ...         MARKET.SZ, '000001', count=1000, start=start
+            ...     )
+            ...     if not result['transactions']:
+            ...         break
+            ...     all_transactions.extend(result['transactions'])
+            ...     start += len(result['transactions'])
+            ...     if len(result['transactions']) < 1000:
+            ...         break
+            >>> print(f"共获取 {len(all_transactions)} 笔成交")
+
+        Note:
+            - 此方法需要在 SP 模式下使用（需先调用 sp() 方法）
+            - 返回的是逐笔成交明细，数据量较大，建议合理设置 count 参数
+            - query_date 参数用于获取历史成交数据，不传则获取当日数据
+            - bs_flag 字段标识买卖方向，可用于分析资金流向
+            - 如果股票代码不存在或无成交数据，transactions 列表为空
+            - 对于大数量请求，建议使用分页方式逐步获取
+        """
+        parser = SymbolTransaction(
+            market=market, 
+            code=code, 
+            count=count, 
+            start=start, 
+            query_date=query_date
+        )
+        return self.call(parser)

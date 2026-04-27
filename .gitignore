@@ -8,3 +8,5 @@ venv/
 pip_install.sh
 demo*.py
 /*.csv
+.DS_Store
+ai/

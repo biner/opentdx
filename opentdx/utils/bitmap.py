@@ -3,7 +3,11 @@ from enum import Enum, IntEnum
 from typing import Union, List
 from opentdx.utils.log import log
 
+SYMBOL_QUOTES_DEFAULT_HEX = "ffbc81cc3f080300000000000000000000000000"
+BOARD_MEMBERS_QUOTES_DEFAULT_HEX = "fffce1cc3f080301000000000000000000000000"
 
+QUOTES_DEBUG_HEX =     "ff ff ff ff ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00"
+QUOTES_DEBUG_ALL_HEX = "ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff"
 # 定义字段位图映射 (根据 TDX 协议定义)
 # 每一位代表一个4字节的字段是否存在
 # 通过对比静态解析和动态解析验证得出（基于实测数据）
@@ -172,6 +176,15 @@ class FieldBit(IntEnum):
     ACTIVITY = 0x59
     CONSECUTIVE_UP_DAYS = 0x5c
     AMOUNT_2M = 0x6a
+    
+    @property
+    def info(self):
+        return FIELD_BITMAP_MAP.get(self.value, {})
+    
+    @property
+    def field_name(self):
+        """返回显示名称"""
+        return self.info[0] if self.info else "unknow"
 
 # 预定义字段集合（快捷方式）
 class PresetField(Enum):
@@ -194,3 +207,94 @@ class PresetField(Enum):
                 FieldBit.SELL_PRICE_LIMIT, FieldBit.UNKNOWN_34, FieldBit.LOT_SIZE, FieldBit.PRE_IPOV,
                 FieldBit.SPEED_PCT, FieldBit.FLAG_KCB, FieldBit.PE_TTM, FieldBit.PE_STATIC, FieldBit.UNKNOWN_CLOSE_PRICE)
     ALL = tuple(FieldBit)
+
+
+# def fields_to_filter(field_names: Union[str, List[str]]) -> int:
+#     """
+#     将字段名列表（或预定义集合名）转换为 filter 整数位掩码
+    
+#     Args:
+#         field_names: 可以是字段名列表，或预定义集合的键（如 'basic'），
+#                      或使用 '+' 连接的组合字符串，如 'basic+quote'
+    
+#     Returns:
+#         整数位掩码，每一位代表一个字段位位置
+#     """
+#     if isinstance(field_names, str):
+#         if '+' in field_names:
+#             parts = field_names.split('+')
+#             names = []
+#             for part in parts:
+#                 if part in PRESET_FIELDS:
+#                     names.extend(PRESET_FIELDS[part])
+#                 else:
+#                     names.append(part)
+#         elif field_names in PRESET_FIELDS:
+#             names = PRESET_FIELDS[field_names]
+#         else:
+#             names = [field_names]
+#     else:
+#         names = field_names
+    
+#     filter_val = 0
+#     for name in names:
+#         if name in FIELD_NAME_TO_BIT:
+#             bit_pos = FIELD_NAME_TO_BIT[name]
+#             filter_val |= (1 << bit_pos)
+#         else:
+#             log.warning(f"未知字段名: {name}，已忽略")
+#     return filter_val
+
+
+def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
+    bitmap_int = int.from_bytes(bitmap_bytes, 'little')
+    active_bits = []
+    while bitmap_int:
+        lowbit = bitmap_int & -bitmap_int          # 取最低位的1
+        bit_pos = lowbit.bit_length() - 1          # 计算位置
+        active_bits.append(bit_pos)
+        bitmap_int ^= lowbit                       # 清除该位
+    return active_bits
+
+
+def convert_fields_to_filter(fields: List[FieldBit] | PresetField | None) -> int:
+    """
+    将 fields 参数（FieldBit 列表或 PresetField 枚举）转换为 filter 整数位掩码
+    
+    Args:
+        fields: 可以是以下类型之一：
+                - None: 返回 0
+                - list[FieldBit]: FieldBit 枚举列表，如 [FieldBit.PRE_CLOSE, FieldBit.OPEN]
+                - PresetField: 预定义字段集合枚举，如 PresetField.BASIC
+    
+    Returns:
+        整数位掩码，如果 fields 为 None 则返回 0
+    
+    Examples:
+        >>> # 使用 PresetField
+        >>> convert_fields_to_filter(PresetField.BASIC)
+        
+        >>> # 使用 FieldBit 列表
+        >>> convert_fields_to_filter([FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH])
+        
+        >>> # 使用 None
+        >>> convert_fields_to_filter(None)  # 返回 0
+    """
+    if fields is None:
+        return 0
+    
+    # 处理 PresetField 枚举
+    if isinstance(fields, PresetField):
+        field_bits = fields.value
+    else:
+        # 假设是 FieldBit 列表
+        field_bits = fields
+    
+    filter_val = 0
+    for bit in field_bits:
+        if isinstance(bit, FieldBit):
+            filter_val |= (1 << bit.value)
+        else:
+            log.warning(f"无效的字段位: {bit}，已忽略")
+    
+    return filter_val

@@ -5,7 +5,7 @@ from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.utils.help import exchange_board_code
 from opentdx.const import MARKET,EX_MARKET, CATEGORY , EX_CATEGORY, SORT_TYPE, SORT_ORDER
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField
+from opentdx.utils.bitmap import FIELD_BITMAP_MAP, QUOTES_DEBUG_ALL_HEX, QUOTES_DEBUG_HEX, BOARD_MEMBERS_QUOTES_DEFAULT_HEX
 
 
 @register_parser(0x122C, 1)
@@ -17,23 +17,25 @@ class BoardMembersQuotes(BaseParser):
         start: int = 0,
         page_size: int = 80,
         sort_order: SORT_ORDER = SORT_ORDER.NONE,
-        fields: list[FieldBit] | PresetField = PresetField.ALL
+        filter: int = 0
     ):
         board_code = exchange_board_code(board_symbol) if isinstance(board_symbol, str) else board_symbol.code
         sort_type_code = sort_type if isinstance(sort_type, int) else sort_type.value
 
         self.body = struct.pack("<I9xHIBBBB", board_code, sort_type_code, start, page_size, 0, sort_order.value, 0)
         
-        # 位图配置：20字节，每一位代表一个字段是否存在
-        if isinstance(fields, PresetField):
-            fields = fields.value
-            
-        bit_fields = [field.value for field in fields]
-        bitmap = bytearray(20)
-        for bit in bit_fields:
-            byte_index = bit // 8
-            bit_index = bit % 8
-            bitmap[byte_index] |= (1 << bit_index)
+        if filter == 0:
+            # 默认位图：常用字段组合
+            bitmap = bytearray.fromhex(BOARD_MEMBERS_QUOTES_DEFAULT_HEX)
+        elif filter == -1:
+            # 全字段模式（测试用）
+            bitmap = bytearray.fromhex(QUOTES_DEBUG_HEX)
+        elif filter == -99:
+            # 全字段模式（验证新字段使用）
+            bitmap = bytearray.fromhex(QUOTES_DEBUG_ALL_HEX)
+        else:
+            # 根据 filter 整数值生成位图
+            bitmap = bytearray(filter.to_bytes(20, 'little'))
         
         self.body = self.body + bitmap
 
