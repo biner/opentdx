@@ -542,7 +542,7 @@ class CommonClientMixin:
     @update_last_ack_time
     def get_symbol_quotes(
         self, 
-        symbol_list: List[Tuple[MARKET | EX_MARKET, str]],
+        code_list: List[Tuple[MARKET | EX_MARKET, str]],
         fields: Optional[Union[str, List[str]]] = None,   # 新增：友好字段选择
         filter=0
     ):
@@ -555,14 +555,14 @@ class CommonClientMixin:
         if filter_val == 0:
             # 默认使用 basic 字段集（基础五档+成交量）
             filter_val = fields_to_filter("basic")
-        return self.call(SymbolQuotes(symbol_list=symbol_list, filter=filter_val))
+        return self.call(SymbolQuotes(code_list=code_list, filter=filter_val))
 
     @require_sp_mode    
     @update_last_ack_time
     def get_symbol_transactions(
         self, 
         market: MARKET | EX_MARKET, 
-        symbol: str, 
+        code: str, 
         count: int = 1000, 
         start: int = 0, 
         query_date: date = None
@@ -579,7 +579,7 @@ class CommonClientMixin:
                 - EX_MARKET.HK: 港股市场
                 - EX_MARKET.US: 美股市场
                 - 其他市场类型参见 MARKET 和 EX_MARKET 枚举
-            symbol: 股票代码，如 "000001"（平安银行）、"600000"（浦发银行）
+            code: 股票代码，如 "000001"（平安银行）、"600000"（浦发银行）
                 - A股代码格式：6位数字
                 - 港股代码格式：5位数字（可能以0开头）
                 - 美股代码格式：字母组成
@@ -594,7 +594,7 @@ class CommonClientMixin:
         Returns:
             dict: 包含逐笔成交数据的字典，包含以下字段：
                 - market: 市场代码（整数）
-                - symbol: 证券代码（字符串）
+                - code: 证券代码（字符串）
                 - query_date: 查询日期（整数，格式YYYYMMDD）
                 - count: 实际返回的成交笔数（整数）
                 - start: 起始位置（整数）
@@ -652,7 +652,7 @@ class CommonClientMixin:
         """
         parser = SymbolTransaction(
             market=market, 
-            symbol=symbol, 
+            code=code, 
             count=count, 
             start=start, 
             query_date=query_date

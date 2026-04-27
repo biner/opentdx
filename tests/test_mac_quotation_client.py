@@ -684,13 +684,13 @@ class TestMacQuotationClientSymbolTransaction:
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
         
         # 验证必需字段存在
-        required_fields = ['market', 'symbol', 'query_date', 'count', 'start', 'total', 'transactions']
+        required_fields = ['market', 'code', 'query_date', 'count', 'start', 'total', 'transactions']
         for field in required_fields:
             assert field in result, f"返回数据缺少必需字段: {field}"
         
         # 验证字段类型
         assert isinstance(result['market'], int), "market 应为整数类型"
-        assert isinstance(result['symbol'], str), "symbol 应为字符串类型"
+        assert isinstance(result['code'], str), "code 应为字符串类型"
         assert isinstance(result['query_date'], int), "query_date 应为整数类型"
         assert isinstance(result['count'], int), "count 应为整数类型"
         assert isinstance(result['start'], int), "start 应为整数类型"
@@ -704,7 +704,7 @@ class TestMacQuotationClientSymbolTransaction:
         # 验证总笔数合理性
         assert result['total'] > 0, "总成交笔数应大于0"
         
-        print(f"基本测试通过: symbol={result['symbol']}, total={result['total']}, 返回={result['count']}笔")
+        print(f"基本测试通过: symbol={result['code']}, total={result['total']}, 返回={result['count']}笔")
 
     def test_get_symbol_transactions_data_structure(self, mqc: macQuotationClient):
         """

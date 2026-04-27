@@ -94,7 +94,7 @@ class SymbolQuotes(BoardMembersQuotes):
     
     def __init__(
         self,
-        symbol_list: List[Tuple[MARKET | EX_MARKET, str]],
+        code_list: List[Tuple[MARKET | EX_MARKET, str]],
         filter: int = 0
     ):
         """
@@ -130,9 +130,9 @@ class SymbolQuotes(BoardMembersQuotes):
             # 根据 filter 整数值生成位图
             pkg = bytearray(filter.to_bytes(20, 'little'))
 
-        self.body = pkg + struct.pack('H', len(symbol_list))
+        self.body = pkg + struct.pack('H', len(code_list))
         
-        for market, code in symbol_list:
+        for market, code in code_list:
             self.body.extend(struct.pack('<H22s', market.value, code.encode('gbk')))
 
 

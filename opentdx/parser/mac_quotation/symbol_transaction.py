@@ -21,7 +21,7 @@ class SymbolTransaction(BaseParser):
     用于获取股票的逐笔成交明细数据
     """
     
-    def __init__(self, market: Union[MARKET, EX_MARKET], symbol: str,   count: int = 1000, start: int = 0, query_date : date = None ):
+    def __init__(self, market: Union[MARKET, EX_MARKET], code: str,   count: int = 1000, start: int = 0, query_date : date = None ):
         """
         初始化逐笔成交查询
 
@@ -43,7 +43,7 @@ class SymbolTransaction(BaseParser):
             ymd = 0
         self.body = struct.pack("<H22s I I H 10x",
                                 market.value,
-                                symbol.encode("gbk"),
+                                code.encode("gbk"),
                                 ymd,      # unknown1
                                 start,      # unknown2
                                 count
@@ -63,13 +63,13 @@ class SymbolTransaction(BaseParser):
         # 首先解析头部信息
         # 根据抓包数据和类似协议推断头部结构
         print(data[:39].hex())
-        market, symbol_raw, query_date, count, start, total = struct.unpack(
+        market, code_raw, query_date, count, start, total = struct.unpack(
             "<H22sIxHII", data[:39]
         )
-        print(market, symbol_raw, query_date, count,start, total )
+        print(market, code_raw, query_date, count,start, total )
         
-        market, symbol_raw = struct.unpack("<H22s", data[:24])
-        symbol = symbol_raw.decode("gbk", errors="ignore").replace('\x00', '')
+        market, code_raw = struct.unpack("<H22s", data[:24])
+        code = code_raw.decode("gbk", errors="ignore").replace('\x00', '')
 
 
         transactions = []
@@ -95,7 +95,7 @@ class SymbolTransaction(BaseParser):
         return {
             "data": data,
             "market": market,
-            "symbol": symbol,
+            "code": code,
             "query_date": query_date,
             "count": count,
             "start": start,

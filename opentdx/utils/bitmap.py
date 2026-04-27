@@ -1,7 +1,5 @@
 # coding=utf-8
-import struct
 from typing import Union, List
-from opentdx.const import EX_MARKET, MARKET
 from opentdx.utils.log import log
 
 SYMBOL_QUOTES_DEFAULT_HEX = "ffbc81cc3f080300000000000000000000000000"
@@ -243,20 +241,3 @@ def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
     return active_bits
 
 
-def parse_row_header(row_data: bytes) -> dict:
-    """
-    解析行数据的头部信息（前68字节）
-    """
-    header_format = "<H22s44s"
-    market_code, code_bytes, name_bytes = struct.unpack(header_format, row_data[:68])
-    code = code_bytes.decode("gbk", errors="ignore").replace("\x00", "")
-    name = name_bytes.decode("gbk", errors="ignore").replace("\x00", "")
-    try:
-        if market_code <= 3:
-            market = MARKET(market_code)
-        else:
-            market = EX_MARKET(market_code)
-    except Exception as e:
-        log.error(f"解析市场信息出错: {e}")
-        market = EX_MARKET.TEMP_STOCK
-    return {"name": name, "market": market, "symbol": code}
