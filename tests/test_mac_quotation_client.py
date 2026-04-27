@@ -3,7 +3,7 @@ from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_BOARD_TYPE, EX_MARKET
 import pandas as pd
 import pytest
 from opentdx.utils.help import industry_to_board_symbol, ah_code_to_symbol, lot_size_to_symbol
-from opentdx.utils.bitmap import PRESET_FIELDS
+from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField
 
 class TestMacQuotationClientLogin:
     """登录"""
@@ -205,22 +205,26 @@ class TestMacQuotationClientBoardFields:
         
         print("支持自定义字段 ohlc")
 
-        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, fields='basic')
+        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, fields=PresetField.BASIC)
         df = pd.DataFrame(rs)
-  
-        for field in PRESET_FIELDS['basic']:
-            assert field in df.columns, f"字段 {field} 不在返回数据中"
+        
+        for field in PresetField.BASIC.value:
+            field_info = FIELD_BITMAP_MAP.get(field)
+            filed_name = field_info[0]
+            assert filed_name in df.columns, f"字段 {field} {filed_name} 不在返回数据中"
             
     def test_list_fields(self, mqc:macQuotationClient):
         
         print("支持自定义字段 ohlc")
         category = CATEGORY.A
-        fields = ['pre_close','open','high','low','close','vol','amount','ah_code','lot_size','industry']
+        fields = [FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AMOUNT, FieldBit.AH_CODE, FieldBit.LOT_SIZE, FieldBit.INDUSTRY]
         rs = mqc.get_board_members_quotes(board_symbol=category,count=300, fields=fields)
         df = pd.DataFrame(rs)
-  
+
         for field in fields:
-            assert field in df.columns, f"字段 {field} 不在返回数据中"
+            field_info = FIELD_BITMAP_MAP.get(field)
+            filed_name = field_info[0]
+            assert filed_name in df.columns, f"字段 {field} {filed_name} 不在返回数据中"
 
 
 class TestMacQuotationClientExchange:
@@ -229,10 +233,8 @@ class TestMacQuotationClientExchange:
     def test_exchange_ah_code(self, mqc):
         
         print("支持自定义字段 ohlc , 增加ah_code , 查询881394板块")
-        ah_code_bit = 0x4a
-        lot_size_bit = 0x23
-        ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit)
-        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, filter=ah_code_filter)
+        fields = [FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE]
+        rs = mqc.get_board_members_quotes(board_symbol="881394",count=300, fields=fields)
         df = pd.DataFrame(rs)
         
         if 'ah_code' in df.columns:  # 正确的检查列是否存在的方式
@@ -257,13 +259,11 @@ class TestMacQuotationClientExchange:
     def test_exchange_dq_symbol(self, mqc):
         
         print("支持自定义字段 ohlc , 增加ah_code , 查询881394板块")
-        ah_code_bit = 0x4a
-        lot_size_bit = 0x23
-        ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit)
-        rs = mqc.get_board_members_quotes(board_symbol="881394", count=100, filter=ah_code_filter)
+        fields = [FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE]
+
+        rs = mqc.get_board_members_quotes(board_symbol="881394", count=100, fields=fields)
         df = pd.DataFrame(rs)
         
-
         if 'lot_size' in df.columns:  # 正确的检查列是否存在的方式
             df['dq_symbol'] = df.apply(lambda row: lot_size_to_symbol(row['lot_size']), axis=1)
             
@@ -496,52 +496,52 @@ class TestMacQuotationClientSymbolQuotes:
 
     def test_get_symbol_quotes(self, mqc:macQuotationClient):
         """测试A股的股票信息"""
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
             (MARKET.SH, '688808'),
             (MARKET.SZ, '000999')
             
         ]
-        print(symbol_list)
-        result = mqc.get_symbol_quotes(symbol_list)
+        print(code_list)
+        result = mqc.get_symbol_quotes(code_list)
         df = pd.DataFrame(result['stocks'])
         print(result['stocks'])
         
     def test_get_ex_symbol_quotes(self, meqc:macQuotationClient):
         """测试EX的股票信息"""
-        symbol_list = [
+        code_list = [
             (EX_MARKET.US_STOCK, 'BOIL'),
             (EX_MARKET.US_STOCK, 'KOLD'),
         ]
-        print(symbol_list)
-        result = meqc.get_symbol_quotes(symbol_list)
+        print(code_list)
+        result = meqc.get_symbol_quotes(code_list)
         df = pd.DataFrame(result['stocks'])
         print(result['stocks'])
         
-        symbol_list = [
+        code_list = [
             (EX_MARKET.HK_MAIN_BOARD, '00700'),
         ]
-        print(symbol_list)
-        result = meqc.get_symbol_quotes(symbol_list)
+        print(code_list)
+        result = meqc.get_symbol_quotes(code_list)
         df = pd.DataFrame(result['stocks'])
         print(result['stocks'])
         
     def test_get_symbol_quotes_with_basic_fields(self, mqc:macQuotationClient):
         """测试使用 basic 字段预设获取股票行情"""
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
             (MARKET.SH, '600000'),
         ]
         
-        result = mqc.get_symbol_quotes(symbol_list, fields="basic")
+        result = mqc.get_symbol_quotes(code_list, fields=PresetField.BASIC)
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
         assert "field_bitmap" in result, "返回值应包含field_bitmap字段"
         assert "count" in result, "返回值应包含count字段"
         assert "stocks" in result, "返回值应包含stocks字段"
-        assert result["count"] == len(symbol_list), f"返回数量应与请求数量一致"
-        assert len(result["stocks"]) == len(symbol_list), f"返回股票数应与请求数量一致"
+        assert result["count"] == len(code_list), f"返回数量应与请求数量一致"
+        assert len(result["stocks"]) == len(code_list), f"返回股票数应与请求数量一致"
         
         # 验证基本字段存在
         for stock in result["stocks"]:
@@ -558,15 +558,15 @@ class TestMacQuotationClientSymbolQuotes:
         
     def test_get_symbol_quotes_with_quote_fields(self, mqc:macQuotationClient):
         """测试使用 quote 字段预设获取盘口数据"""
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
         ]
         
-        result = mqc.get_symbol_quotes(symbol_list, fields="quote")
+        result = mqc.get_symbol_quotes(code_list, fields=PresetField.QUOTE)
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
-        assert len(result["stocks"]) == len(symbol_list), f"返回股票数应与请求数量一致"
+        assert len(result["stocks"]) == len(code_list), f"返回股票数应与请求数量一致"
         
         # 验证盘口字段存在
         for stock in result["stocks"]:
@@ -580,15 +580,15 @@ class TestMacQuotationClientSymbolQuotes:
         
     def test_get_symbol_quotes_with_volume_fields(self, mqc:macQuotationClient):
         """测试使用 volume 字段预设获取量能数据"""
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
         ]
         
-        result = mqc.get_symbol_quotes(symbol_list, fields="volume")
+        result = mqc.get_symbol_quotes(code_list, fields=PresetField.VOLUME)
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
-        assert len(result["stocks"]) == len(symbol_list), f"返回股票数应与请求数量一致"
+        assert len(result["stocks"]) == len(code_list), f"返回股票数应与请求数量一致"
         
         # 验证量能字段存在
         for stock in result["stocks"]:
@@ -601,17 +601,17 @@ class TestMacQuotationClientSymbolQuotes:
         
     def test_get_symbol_quotes_with_combined_fields(self, mqc:macQuotationClient):
         """测试使用组合字段（basic+quote）获取股票行情"""
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
             (MARKET.SH, '600000'),
         ]
         
-        result = mqc.get_symbol_quotes(symbol_list, fields="basic+quote")
+        result = mqc.get_symbol_quotes(code_list, fields=PresetField.BASIC.value + PresetField.QUOTE.value)
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
-        assert result["count"] == len(symbol_list), f"返回数量应与请求数量一致"
-        assert len(result["stocks"]) == len(symbol_list), f"返回股票数应与请求数量一致"
+        assert result["count"] == len(code_list), f"返回数量应与请求数量一致"
+        assert len(result["stocks"]) == len(code_list), f"返回股票数应与请求数量一致"
         
         # 验证组合字段都存在
         for stock in result["stocks"]:
@@ -626,46 +626,56 @@ class TestMacQuotationClientSymbolQuotes:
         
     def test_get_symbol_quotes_with_fundamental_fields(self, mqc:macQuotationClient):
         """测试使用 fundamental 字段预设获取基本面数据"""
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
         ]
         
-        result = mqc.get_symbol_quotes(symbol_list, fields="fundamental")
+        result = mqc.get_symbol_quotes(code_list, fields=PresetField.FUNDAMENTAL)
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
-        assert len(result["stocks"]) == len(symbol_list), f"返回股票数应与请求数量一致"
+        assert len(result["stocks"]) == len(code_list), f"返回股票数应与请求数量一致"
         
         # 验证基本面字段存在
         for stock in result["stocks"]:
             assert "total_shares" in stock, "fundamental字段集应包含total_shares"
             assert "float_shares" in stock, "fundamental字段集应包含float_shares"
-            assert "EPS" in stock, "fundamental字段集应包含EPS"
+            assert "eps" in stock, "fundamental字段集应包含EPS"
             assert "net_assets" in stock, "fundamental字段集应包含net_assets"
             
         print(f"Fundamental字段测试结果: EPS={result['stocks'][0].get('EPS')}, net_assets={result['stocks'][0].get('net_assets')}")
         
     def test_get_symbol_quotes_with_custom_filter(self, mqc:macQuotationClient):
         """测试使用自定义filter参数获取股票行情"""
-        from opentdx.utils.bitmap import fields_to_filter
+
         
-        symbol_list = [
+        code_list = [
             (MARKET.SZ, '000001'),
         ]
         
-        # 使用自定义filter（只获取价格和成交量）
-        custom_filter = fields_to_filter(["pre_close", "close", "vol"])
-        result = mqc.get_symbol_quotes(symbol_list, filter=custom_filter)
+        # 使用 PresetField.BASIC（只包含基础字段：pre_close, open, high, low, close, vol）
+        result = mqc.get_symbol_quotes(code_list, fields=PresetField.BASIC)
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
-        assert len(result["stocks"]) == len(symbol_list), f"返回股票数应与请求数量一致"
+        assert len(result["stocks"]) == len(code_list), f"返回股票数应与请求数量一致"
         
-        # 验证自定义字段存在
+        # 验证 BASIC 字段集中的字段存在
         for stock in result["stocks"]:
-            assert "pre_close" in stock, "应包含pre_close"
-            assert "close" in stock, "应包含close"
-            assert "vol" in stock, "应包含vol"
+            assert "pre_close" in stock, "BASIC字段集应包含pre_close"
+            assert "open" in stock, "BASIC字段集应包含open"
+            assert "high" in stock, "BASIC字段集应包含high"
+            assert "low" in stock, "BASIC字段集应包含low"
+            assert "close" in stock, "BASIC字段集应包含close"
+            assert "vol" in stock, "BASIC字段集应包含vol"
+            
+        # 验证 BASIC 字段集之外的字段不存在（确保 filter 生效）
+        for stock in result["stocks"]:
+            assert "amount" not in stock, "BASIC字段集不应包含amount"
+            assert "bid" not in stock, "BASIC字段集不应包含bid"
+            assert "ask" not in stock, "BASIC字段集不应包含ask"
+            assert "turnover" not in stock, "BASIC字段集不应包含turnover"
+            
             
         print(f"Custom filter测试结果: 位图={result['field_bitmap'][:16]}...")
         

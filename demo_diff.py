@@ -7,6 +7,7 @@ from opentdx.const import ADJUST, BLOCK_FILE_TYPE, CATEGORY, EX_CATEGORY, EX_MAR
 from opentdx.const import mac_hosts,    mac_ex_hosts
 from opentdx.parser.ex_quotation import file, goods
 from opentdx.parser.quotation import server, stock
+from opentdx.utils.bitmap import FieldBit, PresetField
 from opentdx.utils.help import industry_to_board_symbol
 import time
 
@@ -31,10 +32,7 @@ if __name__ == "__main__":
     # rs = client.get_stock_quotes_list(category=category,count=10,sortType=SORT_TYPE.CHANGE_PCT)
     # df1 = pd.DataFrame(rs)
     # print(df1.iloc[3])
-    ah_code_bit = 0x4a
-    lot_size_bit = 0x23
-    ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit)
-    rs = client.get_board_members_quotes(board_symbol="10000",count=300, filter=-99)
+    rs = client.get_board_members_quotes(board_symbol="10000",count=300, fields=PresetField.ALL)
     df = pd.DataFrame(rs)
     df.to_csv("bk.csv")
     print(df)
@@ -44,12 +42,7 @@ if __name__ == "__main__":
     # exit()
     board_symbol = str(CATEGORY.A.value)
     board_symbol = "880548"
-    ah_code_bit = 0x4a
-    lot_size_bit = 0x23
-    industry_bit = 0x1c
-    ah_code_filter =  (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit) | (1 << industry_bit)| (1 << industry_bit)
-    ah_code_filter = -99
-    rs = client.get_board_members_quotes(board_symbol=board_symbol,count=20, filter=ah_code_filter)
+    rs = client.get_board_members_quotes(board_symbol=board_symbol,count=20, fields=PresetField.AH_CODE)
     df = pd.DataFrame(rs)
 
     df.to_csv("test.csv")
