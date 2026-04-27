@@ -507,6 +507,25 @@ class TestMacQuotationClientSymbolQuotes:
         df = pd.DataFrame(result['stocks'])
         print(result['stocks'])
         
+    def test_get_ex_symbol_quotes(self, meqc:macQuotationClient):
+        """测试EX的股票信息"""
+        symbol_list = [
+            (EX_MARKET.US_STOCK, 'BOIL'),
+            (EX_MARKET.US_STOCK, 'KOLD'),
+        ]
+        print(symbol_list)
+        result = meqc.get_symbol_quotes(symbol_list)
+        df = pd.DataFrame(result['stocks'])
+        print(result['stocks'])
+        
+        symbol_list = [
+            (EX_MARKET.HK_MAIN_BOARD, '00700'),
+        ]
+        print(symbol_list)
+        result = meqc.get_symbol_quotes(symbol_list)
+        df = pd.DataFrame(result['stocks'])
+        print(result['stocks'])
+        
     def test_get_symbol_quotes_with_basic_fields(self, mqc:macQuotationClient):
         """测试使用 basic 字段预设获取股票行情"""
         symbol_list = [

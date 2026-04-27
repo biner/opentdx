@@ -7,7 +7,8 @@ from opentdx.const import MARKET, EX_MARKET
 from opentdx.utils.bitmap import SYMBOL_QUOTES_DEFAULT_HEX, QUOTES_DEBUG_HEX, QUOTES_DEBUG_ALL_HEX
 
 # 正常应该是 BoardMembersQuotes extent SymbolQuotes. 但BoardMembersQuotes先解析了
-@register_parser(0x122B)
+# @register_parser(0x122B, 1) ex服务器,需要 1 
+@register_parser(0x122B, 1)
 class SymbolQuotes(BoardMembersQuotes):
     """
     股票行情查询解析器 (命令字: 0x122B)
