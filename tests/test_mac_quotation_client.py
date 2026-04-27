@@ -670,3 +670,264 @@ class TestMacQuotationClientSymbolQuotes:
         print(f"Custom filter测试结果: 位图={result['field_bitmap'][:16]}...")
         
 
+class TestMacQuotationClientSymbolTransaction:
+    """分时成交 API - 真实请求测试"""
+
+    def test_get_symbol_transactions_basic(self, mqc: macQuotationClient):
+        """
+        测试获取当日逐笔成交数据的基本功能
+        验证返回数据结构完整性和数据类型正确性
+        """
+        result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=10)
+        
+        # 验证返回类型为字典
+        assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
+        
+        # 验证必需字段存在
+        required_fields = ['market', 'symbol', 'query_date', 'count', 'start', 'total', 'transactions']
+        for field in required_fields:
+            assert field in result, f"返回数据缺少必需字段: {field}"
+        
+        # 验证字段类型
+        assert isinstance(result['market'], int), "market 应为整数类型"
+        assert isinstance(result['symbol'], str), "symbol 应为字符串类型"
+        assert isinstance(result['query_date'], int), "query_date 应为整数类型"
+        assert isinstance(result['count'], int), "count 应为整数类型"
+        assert isinstance(result['start'], int), "start 应为整数类型"
+        assert isinstance(result['total'], int), "total 应为整数类型"
+        assert isinstance(result['transactions'], list), "transactions 应为列表类型"
+        
+        # 验证成交数据数量
+        assert len(result['transactions']) == result['count'], \
+            f"transactions 长度({len(result['transactions'])})应与count({result['count']})一致"
+        
+        # 验证总笔数合理性
+        assert result['total'] > 0, "总成交笔数应大于0"
+        
+        print(f"基本测试通过: symbol={result['symbol']}, total={result['total']}, 返回={result['count']}笔")
+
+    def test_get_symbol_transactions_data_structure(self, mqc: macQuotationClient):
+        """
+        测试逐笔成交数据的内部结构
+        验证每笔成交记录的字段完整性和数据类型
+        """
+        result = mqc.get_symbol_transactions(MARKET.SZ, '000001', count=5)
+        
+        assert len(result['transactions']) > 0, "应至少返回一笔成交数据"
+        
+        # 验证每笔成交记录的字段
+        required_tx_fields = ['time', 'price', 'volume', 'trade_count', 'bs_flag ']
+        
+        for i, tx in enumerate(result['transactions']):
+            assert isinstance(tx, dict), f"第{i}笔成交应为字典类型"
+            
+            for field in required_tx_fields:
+                assert field in tx, f"第{i}笔成交缺少字段: {field}"
+            
+            # 验证字段类型
+            assert isinstance(tx['time'], str), f"第{i}笔成交 time 应为字符串"
+            assert isinstance(tx['price'], float), f"第{i}笔成交 price 应为浮点数"
+            assert isinstance(tx['volume'], int), f"第{i}笔成交 volume 应为整数"
+            assert isinstance(tx['trade_count'], int), f"第{i}笔成交 trade_count 应为整数"
+            assert isinstance(tx['bs_flag '], int), f"第{i}笔成交 bs_flag 应为整数"
+            
+            # 验证时间格式 (HH:MM:SS)
+            time_parts = tx['time'].split(':')
+            assert len(time_parts) == 3, f"第{i}笔成交 time 格式错误: {tx['time']}"
+            assert 0 <= int(time_parts[0]) <= 23, f"第{i}笔成交 小时超出范围"
+            assert 0 <= int(time_parts[1]) <= 59, f"第{i}笔成交 分钟超出范围"
+            assert 0 <= int(time_parts[2]) <= 59, f"第{i}笔成交 秒超出范围"
+            
+            # 验证价格合理性
+            assert tx['price'] > 0, f"第{i}笔成交价格应大于0"
+            
+            # 验证成交量合理性
+            assert tx['volume'] >= 0, f"第{i}笔成交量应大于等于0"
+            
+            # 验证买卖方向标志
+            assert tx['bs_flag '] in [0, 1, 2, 5], \
+                f"第{i}笔成交 bs_flag 值无效: {tx['bs_flag ']} (应为0/1/2/5)"
+        
+        print(f"数据结构测试通过: 验证了{len(result['transactions'])}笔成交记录")
+
+    def test_get_symbol_transactions_historical_date(self, mqc: macQuotationClient):
+        """
+        测试历史日期查询功能
+        验证可以成功获取指定日期的成交数据
+        """
+        from datetime import date
+        
+        # 测试有效历史日期（2024年1月15日是交易日）
+        test_date = date(2024, 1, 15)
+        result = mqc.get_symbol_transactions(
+            MARKET.SH, 
+            '601000', 
+            count=5,
+            query_date=test_date
+        )
+        
+        # 验证返回数据
+        assert isinstance(result, dict), "返回类型应为dict"
+        assert result['query_date'] == 20240115, f"query_date应为20240115，实际为{result['query_date']}"
+        assert len(result['transactions']) > 0, "历史日期应返回成交数据"
+        
+        print(f"历史日期测试通过: {test_date}, 返回{len(result['transactions'])}笔成交")
+
+    def test_get_symbol_transactions_future_date(self, mqc: macQuotationClient):
+        """
+        测试未来日期查询
+        验证未来日期可能返回空数据或异常处理
+        """
+        from datetime import date, timedelta
+        
+        # 测试未来日期（明天）
+        future_date = date.today() + timedelta(days=1)
+        result = mqc.get_symbol_transactions(
+            MARKET.SH, 
+            '601000', 
+            count=5,
+            query_date=future_date
+        )
+        
+        # 未来日期可能返回空数据或0笔成交，这是正常行为
+        assert isinstance(result, dict), "返回类型应为dict"
+        assert result['query_date'] == int(future_date.strftime("%Y%m%d")), "query_date应与请求日期一致"
+        
+        # 未来日期可能没有成交数据，这是预期行为
+        print(f"未来日期测试通过: {future_date}, 返回{len(result['transactions'])}笔成交（可能为空）")
+
+    def test_get_symbol_transactions_weekend_date(self, mqc: macQuotationClient):
+        """
+        测试非交易日（周末）查询
+        验证周末日期可能返回空数据
+        """
+        from datetime import date
+        
+        # 2024年1月13日是周六（非交易日）
+        weekend_date = date(2024, 1, 13)
+        result = mqc.get_symbol_transactions(
+            MARKET.SH, 
+            '601000', 
+            count=5,
+            query_date=weekend_date
+        )
+        
+        # 非交易日可能返回空数据，这是正常行为
+        assert isinstance(result, dict), "返回类型应为dict"
+        assert result['query_date'] == 20240113, "query_date应与请求日期一致"
+        
+        print(f"周末日期测试通过: {weekend_date}（周六）, 返回{len(result['transactions'])}笔成交（可能为空）")
+
+    def test_get_symbol_transactions_multiple_markets(self, mqc: macQuotationClient):
+        """
+        测试多市场兼容性
+        分别测试上海市场和深圳市场的成交数据获取
+        """
+        # 测试上海市场
+        sh_result = mqc.get_symbol_transactions(MARKET.SH, '600000', count=3)
+        assert isinstance(sh_result, dict), "上海市场返回类型应为dict"
+        assert sh_result['market'] == MARKET.SH.value, "market字段应与请求的市场一致"
+        assert len(sh_result['transactions']) > 0, "上海市场应返回成交数据"
+        
+        # 测试深圳市场
+        sz_result = mqc.get_symbol_transactions(MARKET.SZ, '000001', count=3)
+        assert isinstance(sz_result, dict), "深圳市场返回类型应为dict"
+        assert sz_result['market'] == MARKET.SZ.value, "market字段应与请求的市场一致"
+        assert len(sz_result['transactions']) > 0, "深圳市场应返回成交数据"
+        
+        print(f"多市场测试通过: SH返回{len(sh_result['transactions'])}笔, SZ返回{len(sz_result['transactions'])}笔")
+
+    def test_get_symbol_transactions_pagination(self, mqc: macQuotationClient):
+        """
+        测试分页查询功能
+        验证 start 参数可以正确控制起始位置
+        """
+        # 获取第一页数据
+        page1 = mqc.get_symbol_transactions(MARKET.SH, '601000', count=5, start=0)
+        assert len(page1['transactions']) > 0, "第一页应返回数据"
+        
+        # 获取第二页数据
+        page2 = mqc.get_symbol_transactions(MARKET.SH, '601000', count=5, start=5)
+        assert len(page2['transactions']) > 0, "第二页应返回数据"
+        
+        # 验证两页数据不同（时间应该不同）
+        if len(page1['transactions']) > 0 and len(page2['transactions']) > 0:
+            page1_times = [tx['time'] for tx in page1['transactions']]
+            page2_times = [tx['time'] for tx in page2['transactions']]
+            
+            # 两页数据的时间不应该完全相同
+            assert page1_times != page2_times, "分页数据应该不同"
+        
+        # 验证 start 字段回显正确
+        assert page1['start'] == 0, "第一页 start 应为0"
+        assert page2['start'] == 5, "第二页 start 应为5"
+        
+        print(f"分页测试通过: 第一页{len(page1['transactions'])}笔, 第二页{len(page2['transactions'])}笔")
+
+    def test_get_symbol_transactions_large_count(self, mqc: macQuotationClient):
+        """
+        测试大批量数据获取
+        验证可以一次性获取较多成交数据
+        """
+        result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=100)
+        
+        assert isinstance(result, dict), "返回类型应为dict"
+        assert result['count'] <= 100, "返回数量不应超过请求数量"
+        assert len(result['transactions']) == result['count'], "transactions长度应与count一致"
+        
+        print(f"大批量测试通过: 请求100笔, 实际返回{result['count']}笔")
+
+    def test_get_symbol_transactions_bs_flag_distribution(self, mqc: macQuotationClient):
+        """
+        测试买卖方向分布统计
+        验证 bs_flag 字段的分布合理性
+        """
+        result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=50)
+        
+        assert len(result['transactions']) > 0, "应返回成交数据"
+        
+        # 统计买卖方向分布
+        bs_flags = [tx['bs_flag '] for tx in result['transactions']]
+        buy_count = bs_flags.count(0)   # 买入
+        sell_count = bs_flags.count(1)  # 卖出
+        neutral_count = bs_flags.count(2)  # 中性盘
+        after_hours_count = bs_flags.count(5)  # 盘后
+        
+        
+        total = len(result['transactions'])
+        
+        # 验证所有 bs_flag 都是有效值
+        valid_flags = {0, 1, 2, 5}
+        assert all(flag in valid_flags for flag in bs_flags), \
+            f"存在无效的 bs_flag 值: {set(bs_flags) - valid_flags}"
+        
+        print(f"买卖方向分布测试通过:")
+        print(f"  买入: {buy_count} ({buy_count/total*100:.1f}%)")
+        print(f"  卖出: {sell_count} ({sell_count/total*100:.1f}%)")
+        print(f"  中性盘: {neutral_count} ({neutral_count/total*100:.1f}%)")
+        print(f"  盘后: {after_hours_count} ({after_hours_count/total*100:.1f}%)")
+
+    def test_get_symbol_transactions_price_range(self, mqc: macQuotationClient):
+        """
+        测试价格范围合理性
+        验证成交价格在合理范围内
+        """
+        result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=20)
+        
+        assert len(result['transactions']) > 0, "应返回成交数据"
+        
+        prices = [tx['price'] for tx in result['transactions']]
+        min_price = min(prices)
+        max_price = max(prices)
+        
+        # 验证价格在合理范围内（唐山港股价通常在2-10元之间）
+        assert min_price > 0, f"最低价格应大于0，实际为{min_price}"
+        assert max_price < 100, f"最高价格应小于100，实际为{max_price}"
+        
+        # 验证价格波动合理性（日内价格波动通常不超过10%）
+        if min_price > 0:
+            price_range_pct = (max_price - min_price) / min_price * 100
+            assert price_range_pct < 20, \
+                f"价格波动过大: {price_range_pct:.2f}% (min={min_price}, max={max_price})"
+        
+        print(f"价格范围测试通过: min={min_price:.2f}, max={max_price:.2f}, 波动={price_range_pct:.2f}%")
