@@ -209,8 +209,8 @@ class TestMacQuotationClientBoardFields:
         df = pd.DataFrame(rs)
         
         for field in PresetField.BASIC.value:
-            field_info = FIELD_BITMAP_MAP.get(field)
-            filed_name = field_info[0]
+            # field_info = field.info
+            filed_name = field.field_name
             assert filed_name in df.columns, f"字段 {field} {filed_name} 不在返回数据中"
             
     def test_list_fields(self, mqc:macQuotationClient):

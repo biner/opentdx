@@ -176,6 +176,15 @@ class FieldBit(IntEnum):
     ACTIVITY = 0x59
     CONSECUTIVE_UP_DAYS = 0x5c
     AMOUNT_2M = 0x6a
+    
+    @property
+    def info(self):
+        return FIELD_BITMAP_MAP.get(self.value, {})
+    
+    @property
+    def field_name(self):
+        """返回显示名称"""
+        return self.info[0] if self.info else "unknow"
 
 # 预定义字段集合（快捷方式）
 class PresetField(Enum):
