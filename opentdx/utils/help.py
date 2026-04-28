@@ -124,6 +124,13 @@ def get_price(data, pos):
 
     return int_data, pos
 
+def seconds_to_time_str(secs: int) -> str:
+    """将从0点开始的秒数转换为 HH:MM:SS"""
+    h = secs // 3600
+    m = (secs % 3600) // 60
+    s = secs % 60
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
 def to_datetime(num, with_time=False) -> datetime:
     year = 0
     month = 0

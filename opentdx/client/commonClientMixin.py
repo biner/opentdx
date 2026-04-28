@@ -527,7 +527,7 @@ class CommonClientMixin:
         """
         return self.call(SymbolTickChart(market=market, code=code, query_date=query_date))
     
-    @require_sp_mode    
+    @require_sp_mode
     @update_last_ack_time
     def get_symbol_quotes(
         self, 
@@ -564,14 +564,15 @@ class CommonClientMixin:
         self, 
         market: MARKET | EX_MARKET, 
         code: str, 
-        count: int = 1000, 
+        count: int = 100000, 
         start: int = 0, 
         query_date: date = None
-    ) -> dict:
+    ) -> list:
         """
         获取股票逐笔成交数据
         
         分页获取指定股票的逐笔成交明细数据，支持查询历史日期的成交数据。
+        内部会自动处理分页逻辑，每次最多获取1000条记录。
         
         Args:
             market: 市场类型，支持A股市场和扩展市场
@@ -584,78 +585,83 @@ class CommonClientMixin:
                 - A股代码格式：6位数字
                 - 港股代码格式：5位数字（可能以0开头）
                 - 美股代码格式：字母组成
-            count: 需要获取的成交笔数，默认1000
-                - 每次请求最多可获取的笔数受服务器限制
+            count: 需要获取的最大成交笔数，默认100000
+                - 内部会自动分页获取，直到达到指定数量或无更多数据
             start: 起始位置，默认为0（从第一笔成交开始获取）
-                - 用于分页查询历史成交数据
+                - 用于指定从哪个位置开始获取数据
             query_date: 查询日期，可选参数
                 - None: 获取当日实时成交数据（默认）
                 - date对象: 获取指定日期的历史成交数据
                 
         Returns:
-            dict: 包含逐笔成交数据的字典，包含以下字段：
-                - market: 市场代码（整数）
-                - code: 证券代码（字符串）
-                - query_date: 查询日期（整数，格式YYYYMMDD）
-                - count: 实际返回的成交笔数（整数）
-                - start: 起始位置（整数）
-                - total: 总成交笔数（整数）
-                - transactions: 逐笔成交列表，每个元素包含：
-                    - time: 成交时间（字符串，格式 "HH:MM:SS"）
-                    - price: 成交价格（浮点数）
-                    - volume: 成交量（整数，单位：手）
-                    - trade_count: 成交笔数（整数）
-                    - bs_flag: 买卖方向标志（整数）
-                        - 0: 买入
-                        - 1: 卖出
-                        - 2: 中性盘
-                        - 5: 盘后交易
+            list: 逐笔成交列表，每个元素包含：
+                - time: 成交时间（字符串，格式 "HH:MM:SS"）
+                - price: 成交价格（浮点数）
+                - volume: 成交量（整数，单位：手）
+                - trade_count: 成交笔数（整数）
+                - bs_flag: 买卖方向标志（整数）
+                    - 0: 买入
+                    - 1: 卖出
+                    - 2: 中性盘
+                    - 5: 盘后交易
                         
         Example:
             >>> # 获取平安银行当日最新100笔成交
-            >>> result = client.get_symbol_transactions(MARKET.SZ, '000001', count=100)
-            >>> print(f"共获取 {result['count']} 笔成交")
-            >>> for tx in result['transactions'][:5]:
+            >>> transactions = client.get_symbol_transactions(MARKET.SZ, '000001', count=100)
+            >>> print(f"共获取 {len(transactions)} 笔成交")
+            >>> for tx in transactions[:5]:
             ...     print(f"{tx['time']} 价格:{tx['price']} 成交量:{tx['volume']}")
             >>> 
             >>> # 获取贵州茅台的历史成交数据
             >>> from datetime import date
-            >>> result = client.get_symbol_transactions(
+            >>> transactions = client.get_symbol_transactions(
             ...     MARKET.SH, 
             ...     '600519', 
             ...     count=200, 
             ...     query_date=date(2024, 1, 15)
             ... )
-            >>> print(f"2024-01-15 共 {result['total']} 笔成交")
+            >>> print(f"2024-01-15 共 {len(transactions)} 笔成交")
             >>> 
-            >>> # 分页获取大量成交数据
-            >>> all_transactions = []
-            >>> start = 0
-            >>> while True:
-            ...     result = client.get_symbol_transactions(
-            ...         MARKET.SZ, '000001', count=1000, start=start
-            ...     )
-            ...     if not result['transactions']:
-            ...         break
-            ...     all_transactions.extend(result['transactions'])
-            ...     start += len(result['transactions'])
-            ...     if len(result['transactions']) < 1000:
-            ...         break
-            >>> print(f"共获取 {len(all_transactions)} 笔成交")
+            >>> # 获取大量成交数据（自动分页）
+            >>> transactions = client.get_symbol_transactions(
+            ...     MARKET.SZ, '000001', count=5000
+            ... )
+            >>> print(f"共获取 {len(transactions)} 笔成交")
 
         Note:
             - 此方法需要在 SP 模式下使用（需先调用 sp() 方法）
-            - 返回的是逐笔成交明细，数据量较大，建议合理设置 count 参数
+            - 内部会自动处理分页，每次请求最多1000条记录
+            - 当返回的数据量小于请求数量时，会自动停止分页
+            - 返回的是逐笔成交明细列表，而非字典结构
+            - 数据量较大，建议合理设置 count 参数
             - query_date 参数用于获取历史成交数据，不传则获取当日数据
             - bs_flag 字段标识买卖方向，可用于分析资金流向
-            - 如果股票代码不存在或无成交数据，transactions 列表为空
-            - 对于大数量请求，建议使用分页方式逐步获取
+            - 如果股票代码不存在或无成交数据，返回空列表
         """
-        parser = SymbolTransaction(
-            market=market, 
-            code=code, 
-            count=count, 
-            start=start, 
-            query_date=query_date
-        )
-        return self.call(parser)
+        MAX_TRANSACTION_COUNT = 1000
+        transaction_list = []
+        
+        msg = f"TDX 逐笔成交：{market.name}.{code} 查询总量{count}"
+        log.debug(msg)
+        
+        for current_start in range(start, start + count, MAX_TRANSACTION_COUNT):
+            current_count = min(MAX_TRANSACTION_COUNT, start + count - current_start)
+            parser = SymbolTransaction(
+                market=market, 
+                code=code, 
+                count=current_count, 
+                start=current_start, 
+                query_date=query_date
+            )
+            result = self.call(parser)
+            
+            part = result.get('transactions', [])
+            
+            if len(part) > 0:
+                transaction_list.extend(part)
+            
+            if len(part) < current_count:
+                log.debug(f"{msg} 数据量不足，获取结束")
+                break
+
+        return transaction_list

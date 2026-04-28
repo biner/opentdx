@@ -1,17 +1,10 @@
-from datetime import time,date
+from datetime import date
 import struct
 from typing import Union
 
 from opentdx.const import EX_MARKET, MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
-
-
-def seconds_to_time_str(secs: int) -> str:
-    """将从0点开始的秒数转换为 HH:MM:SS"""
-    h = secs // 3600
-    m = (secs % 3600) // 60
-    s = secs % 60
-    return f"{h:02d}:{m:02d}:{s:02d}"
+from opentdx.utils.help import seconds_to_time_str
 
 @register_parser(0x122F, 1)
 class SymbolTransaction(BaseParser):
@@ -49,7 +42,7 @@ class SymbolTransaction(BaseParser):
                                 count
 
                                 )
-        print(self.body.hex())
+        # print(self.body.hex())
     def deserialize(self, data):
         """
         解析逐笔成交数据
@@ -62,11 +55,11 @@ class SymbolTransaction(BaseParser):
         """
         # 首先解析头部信息
         # 根据抓包数据和类似协议推断头部结构
-        print(data[:39].hex())
+        # print(data[:39].hex())
         market, code_raw, query_date, count, start, total = struct.unpack(
             "<H22sIxHII", data[:39]
         )
-        print(market, code_raw, query_date, count,start, total )
+        # print(market, code_raw, query_date, count,start, total )
         
         market, code_raw = struct.unpack("<H22s", data[:24])
         code = code_raw.decode("gbk", errors="ignore").replace('\x00', '')
