@@ -690,31 +690,13 @@ class TestMacQuotationClientSymbolTransaction:
         """
         result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=10)
         
-        # 验证返回类型为字典
-        assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
+        # 验证返回类型为列表
+        assert isinstance(result, list), f"返回类型应为list，实际为{type(result)}"
         
-        # 验证必需字段存在
-        required_fields = ['market', 'code', 'query_date', 'count', 'start', 'total', 'transactions']
-        for field in required_fields:
-            assert field in result, f"返回数据缺少必需字段: {field}"
+        # 验证返回数量
+        assert len(result) == 10, f"应返回10笔成交，实际返回{len(result)}笔"
         
-        # 验证字段类型
-        assert isinstance(result['market'], int), "market 应为整数类型"
-        assert isinstance(result['code'], str), "code 应为字符串类型"
-        assert isinstance(result['query_date'], int), "query_date 应为整数类型"
-        assert isinstance(result['count'], int), "count 应为整数类型"
-        assert isinstance(result['start'], int), "start 应为整数类型"
-        assert isinstance(result['total'], int), "total 应为整数类型"
-        assert isinstance(result['transactions'], list), "transactions 应为列表类型"
-        
-        # 验证成交数据数量
-        assert len(result['transactions']) == result['count'], \
-            f"transactions 长度({len(result['transactions'])})应与count({result['count']})一致"
-        
-        # 验证总笔数合理性
-        assert result['total'] > 0, "总成交笔数应大于0"
-        
-        print(f"基本测试通过: symbol={result['code']}, total={result['total']}, 返回={result['count']}笔")
+        print(f"基本测试通过: 返回{len(result)}笔成交")
 
     def test_get_symbol_transactions_data_structure(self, mqc: macQuotationClient):
         """
@@ -723,12 +705,12 @@ class TestMacQuotationClientSymbolTransaction:
         """
         result = mqc.get_symbol_transactions(MARKET.SZ, '000001', count=5)
         
-        assert len(result['transactions']) > 0, "应至少返回一笔成交数据"
+        assert len(result) > 0, "应至少返回一笔成交数据"
         
         # 验证每笔成交记录的字段
         required_tx_fields = ['time', 'price', 'volume', 'trade_count', 'bs_flag ']
         
-        for i, tx in enumerate(result['transactions']):
+        for i, tx in enumerate(result):
             assert isinstance(tx, dict), f"第{i}笔成交应为字典类型"
             
             for field in required_tx_fields:
@@ -758,7 +740,7 @@ class TestMacQuotationClientSymbolTransaction:
             assert tx['bs_flag '] in [0, 1, 2, 5], \
                 f"第{i}笔成交 bs_flag 值无效: {tx['bs_flag ']} (应为0/1/2/5)"
         
-        print(f"数据结构测试通过: 验证了{len(result['transactions'])}笔成交记录")
+        print(f"数据结构测试通过: 验证了{len(result)}笔成交记录")
 
     def test_get_symbol_transactions_historical_date(self, mqc: macQuotationClient):
         """
@@ -777,11 +759,10 @@ class TestMacQuotationClientSymbolTransaction:
         )
         
         # 验证返回数据
-        assert isinstance(result, dict), "返回类型应为dict"
-        assert result['query_date'] == 20240115, f"query_date应为20240115，实际为{result['query_date']}"
-        assert len(result['transactions']) > 0, "历史日期应返回成交数据"
+        assert isinstance(result, list), "返回类型应为list"
+        assert len(result) > 0, "历史日期应返回成交数据"
         
-        print(f"历史日期测试通过: {test_date}, 返回{len(result['transactions'])}笔成交")
+        print(f"历史日期测试通过: {test_date}, 返回{len(result)}笔成交")
 
     def test_get_symbol_transactions_future_date(self, mqc: macQuotationClient):
         """
@@ -799,12 +780,10 @@ class TestMacQuotationClientSymbolTransaction:
             query_date=future_date
         )
         
-        # 未来日期可能返回空数据或0笔成交，这是正常行为
-        assert isinstance(result, dict), "返回类型应为dict"
-        assert result['query_date'] == int(future_date.strftime("%Y%m%d")), "query_date应与请求日期一致"
+        # 未来日期可能返回空数据，这是正常行为
+        assert isinstance(result, list), "返回类型应为list"
         
-        # 未来日期可能没有成交数据，这是预期行为
-        print(f"未来日期测试通过: {future_date}, 返回{len(result['transactions'])}笔成交（可能为空）")
+        print(f"未来日期测试通过: {future_date}, 返回{len(result)}笔成交（可能为空）")
 
     def test_get_symbol_transactions_weekend_date(self, mqc: macQuotationClient):
         """
@@ -823,10 +802,9 @@ class TestMacQuotationClientSymbolTransaction:
         )
         
         # 非交易日可能返回空数据，这是正常行为
-        assert isinstance(result, dict), "返回类型应为dict"
-        assert result['query_date'] == 20240113, "query_date应与请求日期一致"
+        assert isinstance(result, list), "返回类型应为list"
         
-        print(f"周末日期测试通过: {weekend_date}（周六）, 返回{len(result['transactions'])}笔成交（可能为空）")
+        print(f"周末日期测试通过: {weekend_date}（周六）, 返回{len(result)}笔成交（可能为空）")
 
     def test_get_symbol_transactions_multiple_markets(self, mqc: macQuotationClient):
         """
@@ -835,17 +813,15 @@ class TestMacQuotationClientSymbolTransaction:
         """
         # 测试上海市场
         sh_result = mqc.get_symbol_transactions(MARKET.SH, '600000', count=3)
-        assert isinstance(sh_result, dict), "上海市场返回类型应为dict"
-        assert sh_result['market'] == MARKET.SH.value, "market字段应与请求的市场一致"
-        assert len(sh_result['transactions']) > 0, "上海市场应返回成交数据"
+        assert isinstance(sh_result, list), "上海市场返回类型应为list"
+        assert len(sh_result) > 0, "上海市场应返回成交数据"
         
         # 测试深圳市场
         sz_result = mqc.get_symbol_transactions(MARKET.SZ, '000001', count=3)
-        assert isinstance(sz_result, dict), "深圳市场返回类型应为dict"
-        assert sz_result['market'] == MARKET.SZ.value, "market字段应与请求的市场一致"
-        assert len(sz_result['transactions']) > 0, "深圳市场应返回成交数据"
+        assert isinstance(sz_result, list), "深圳市场返回类型应为list"
+        assert len(sz_result) > 0, "深圳市场应返回成交数据"
         
-        print(f"多市场测试通过: SH返回{len(sh_result['transactions'])}笔, SZ返回{len(sz_result['transactions'])}笔")
+        print(f"多市场测试通过: SH返回{len(sh_result)}笔, SZ返回{len(sz_result)}笔")
 
     def test_get_symbol_transactions_pagination(self, mqc: macQuotationClient):
         """
@@ -854,25 +830,21 @@ class TestMacQuotationClientSymbolTransaction:
         """
         # 获取第一页数据
         page1 = mqc.get_symbol_transactions(MARKET.SH, '601000', count=5, start=0)
-        assert len(page1['transactions']) > 0, "第一页应返回数据"
+        assert len(page1) > 0, "第一页应返回数据"
         
         # 获取第二页数据
         page2 = mqc.get_symbol_transactions(MARKET.SH, '601000', count=5, start=5)
-        assert len(page2['transactions']) > 0, "第二页应返回数据"
+        assert len(page2) > 0, "第二页应返回数据"
         
         # 验证两页数据不同（时间应该不同）
-        if len(page1['transactions']) > 0 and len(page2['transactions']) > 0:
-            page1_times = [tx['time'] for tx in page1['transactions']]
-            page2_times = [tx['time'] for tx in page2['transactions']]
+        if len(page1) > 0 and len(page2) > 0:
+            page1_times = [tx['time'] for tx in page1]
+            page2_times = [tx['time'] for tx in page2]
             
             # 两页数据的时间不应该完全相同
             assert page1_times != page2_times, "分页数据应该不同"
         
-        # 验证 start 字段回显正确
-        assert page1['start'] == 0, "第一页 start 应为0"
-        assert page2['start'] == 5, "第二页 start 应为5"
-        
-        print(f"分页测试通过: 第一页{len(page1['transactions'])}笔, 第二页{len(page2['transactions'])}笔")
+        print(f"分页测试通过: 第一页{len(page1)}笔, 第二页{len(page2)}笔")
 
     def test_get_symbol_transactions_large_count(self, mqc: macQuotationClient):
         """
@@ -881,11 +853,10 @@ class TestMacQuotationClientSymbolTransaction:
         """
         result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=100)
         
-        assert isinstance(result, dict), "返回类型应为dict"
-        assert result['count'] <= 100, "返回数量不应超过请求数量"
-        assert len(result['transactions']) == result['count'], "transactions长度应与count一致"
+        assert isinstance(result, list), "返回类型应为list"
+        assert len(result) <= 100, "返回数量不应超过请求数量"
         
-        print(f"大批量测试通过: 请求100笔, 实际返回{result['count']}笔")
+        print(f"大批量测试通过: 请求100笔, 实际返回{len(result)}笔")
 
     def test_get_symbol_transactions_bs_flag_distribution(self, mqc: macQuotationClient):
         """
@@ -894,17 +865,17 @@ class TestMacQuotationClientSymbolTransaction:
         """
         result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=50)
         
-        assert len(result['transactions']) > 0, "应返回成交数据"
+        assert len(result) > 0, "应返回成交数据"
         
         # 统计买卖方向分布
-        bs_flags = [tx['bs_flag '] for tx in result['transactions']]
+        bs_flags = [tx['bs_flag '] for tx in result]
         buy_count = bs_flags.count(0)   # 买入
         sell_count = bs_flags.count(1)  # 卖出
         neutral_count = bs_flags.count(2)  # 中性盘
         after_hours_count = bs_flags.count(5)  # 盘后
         
         
-        total = len(result['transactions'])
+        total = len(result)
         
         # 验证所有 bs_flag 都是有效值
         valid_flags = {0, 1, 2, 5}
@@ -924,9 +895,9 @@ class TestMacQuotationClientSymbolTransaction:
         """
         result = mqc.get_symbol_transactions(MARKET.SH, '601000', count=20)
         
-        assert len(result['transactions']) > 0, "应返回成交数据"
+        assert len(result) > 0, "应返回成交数据"
         
-        prices = [tx['price'] for tx in result['transactions']]
+        prices = [tx['price'] for tx in result]
         min_price = min(prices)
         max_price = max(prices)
         
