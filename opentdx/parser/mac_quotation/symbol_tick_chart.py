@@ -13,11 +13,8 @@ class SymbolTickChart(BaseParser):
     
     def __init__(self, market: Union[MARKET, EX_MARKET], code: str, query_date: date = None ):
         # ymd = 20260101
-        if query_date is not None:
-            ymd = int(query_date.strftime("%Y%m%d"))
-        else:
-            ymd = 0
-        self.body = struct.pack("<H22sI5H", market.value, code.encode("gbk"), ymd, 1,0,0,0,0)
+        ymd = query_date.year * 10000 + query_date.month * 100 + query_date.day if query_date else 0
+        self.body = struct.pack("<H22sI5H", market.value, code.encode("gbk"), ymd, 1, 0, 0, 0, 0)
 
     def deserialize(self, data):
         market, code, date_raw, u, price, count = struct.unpack("<H22sIBfH", data[:35])
@@ -33,8 +30,7 @@ class SymbolTickChart(BaseParser):
                 "momentum": momentum
             })
         
-        name, decimal, category, vol_unit, date_raw, time_raw,\
-        pre_close, open, high, low, close, momentum, vol, amount, turnover, avg, industry = struct.unpack("<44sBHf5x2I5ffIf12x2fI", data[35 + count * 18:])
+        name, decimal, category, vol_unit, date_raw, time_raw, pre_close, open, high, low, close, momentum, vol, amount, turnover, avg, industry = struct.unpack("<44sBHf5x2I5ffIf12x2fI", data[35 + count * 18:])
         
         return {
             "market": market,

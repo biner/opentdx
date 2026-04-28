@@ -4,7 +4,6 @@ from opentdx._typing import override
 
 import pandas as pd
 from opentdx.const import MARKET
-
 from opentdx.parser.baseParser import BaseParser, register_parser
 
 
@@ -18,34 +17,14 @@ class SymbolZJLX(BaseParser):
     """
     
     def __init__(self, symbol: str, market: MARKET):
-        # 使用 Stock_ZJLX 作为查询标识
-        query_info_str = "Stock_ZJLX".encode("ascii")
-        # 构建请求体：市场代码(2字节) + 股票代码(8字节GBK) + 填充(16字节) + 查询类型(21字节ASCII)
-        self.body = struct.pack("<H8s16x21s", market.value, symbol.encode("gbk"), query_info_str)
+        self.body = struct.pack("<H8s16x21s", market.value, symbol.encode("gbk"), "Stock_ZJLX".encode("ascii"))
 
     @override
     def deserialize(self, data):
-        """
-        解析资金流向数据
+        market, query_info_str, ext = struct.unpack("<H12s5x8s", data[:27])
         
-        Args:
-            data: 二进制响应数据，格式如：
-                  bytearray(b'\x00\x00Stock_ZJLX\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x9b\x00\x00\x00[["241204384.00","433446784.00","556449984.00","364207616.00"],["1327623680.00","1792538112.00","-186592736.00","47775920.00","91628976.00","47187888.00"]]')
-            
-        Returns:
-            DataFrame: 包含资金流向信息的DataFrame，包含今日和5日资金流向数据
-        """
-        header_length = 27
-        market, query_info_str, ext = struct.unpack("<H12s5x8s", data[0:header_length])
-
-        # 解析剩余数据为GBK编码的JSON字符串
-        remaining_length = len(data) - header_length
-        (unpacked_bytes,) = struct.unpack(f"{header_length}x{remaining_length}s", data)
-        list_str = unpacked_bytes.decode("gbk")
-        
-        # 解析JSON字符串为Python对象
-        # 数据结构: [["今日资金流向..."], ["5日资金流向..."]]
-        python_list = json.loads(list_str)
+        list_raw = struct.unpack(f"<{len(data) - 27}s", data[27:])
+        python_list = json.loads(list_raw.decode("gbk"))
         
         df = pd.DataFrame()
         if len(python_list) > 0 and len(python_list) >= 2:

@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import date
 from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
-from opentdx.parser.mac_quotation import BoardCount, BoardList, BoardMembers, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes, SymbolTransaction
+from opentdx.parser.mac_quotation import BoardList, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes, SymbolTransaction
 from opentdx.utils.log import log
 from opentdx.utils.bitmap import FieldBit, PresetField, convert_fields_to_filter
 from functools import wraps
@@ -63,7 +63,7 @@ class CommonClientMixin:
     @require_sp_mode
     @update_last_ack_time
     def get_board_count(self, market: Union[BOARD_TYPE, EX_BOARD_TYPE]):
-        return self.call(BoardCount(market))
+        return self.call(BoardList(market))['total']
 
     @require_sp_mode
     @update_last_ack_time
@@ -282,7 +282,7 @@ class CommonClientMixin:
         
         for start in range(0, count, MAX_LIST_COUNT):
             current_count = min(MAX_LIST_COUNT, count - start)
-            rs = self.call(BoardMembers(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order))
+            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order))
             part = rs["stocks"]
             
             if len(part) > 0:
@@ -296,12 +296,12 @@ class CommonClientMixin:
     
     @require_sp_mode
     @update_last_ack_time
-    def count_board_members(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=1, sort_type: SORT_TYPE = SORT_TYPE.CODE, sort_order=SORT_ORDER.NONE, filter=0):
+    def count_board_members(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=1, sort_type: SORT_TYPE = SORT_TYPE.CODE, sort_order=SORT_ORDER.NONE):
 
         msg = f"TDX 板块成员：{board_symbol} 查询总量{count}"
         log.debug(msg)
         
-        rs = self.call(BoardMembers(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order, filter=filter))
+        rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order))
         # total = rs["total"]
 
         return rs
