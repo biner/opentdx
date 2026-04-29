@@ -296,12 +296,12 @@ class CommonClientMixin:
     
     @require_sp_mode
     @update_last_ack_time
-    def count_board_members(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=1, sort_type: SORT_TYPE = SORT_TYPE.CODE, sort_order=SORT_ORDER.NONE, filter=0):
+    def count_board_members(self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=1, sort_type: SORT_TYPE = SORT_TYPE.CODE, sort_order=SORT_ORDER.NONE):
 
         msg = f"TDX 板块成员：{board_symbol} 查询总量{count}"
         log.debug(msg)
         
-        rs = self.call(BoardMembers(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order, filter=filter))
+        rs = self.call(BoardMembers(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order))
         # total = rs["total"]
 
         return rs
