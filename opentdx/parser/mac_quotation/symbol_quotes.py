@@ -4,15 +4,12 @@ from typing import override
 from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.const import MARKET, EX_MARKET
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField, build_bitmap
+from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField, FieldSelection, build_bitmap
 
 @register_parser(0x122B, 1)
 class SymbolQuotes(BaseParser):
 
-    def __init__(self, code_list: list[tuple[MARKET | EX_MARKET, str]], fields: list[FieldBit] | PresetField = PresetField.COMMON):
-        if isinstance(fields, PresetField):
-            fields = fields.value
-
+    def __init__(self, code_list: list[tuple[MARKET | EX_MARKET, str]], fields: FieldBit | PresetField | FieldSelection | list[FieldBit] = PresetField.COMMON):
         self.body = build_bitmap(fields) + struct.pack('H', len(code_list))
         for market, code in code_list:
             self.body.extend(struct.pack('<H22s', market.value, code.encode('gbk')))

@@ -5,7 +5,7 @@ from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
 from opentdx.parser.mac_quotation import BoardList, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes, SymbolTransaction
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import FieldBit, PresetField
+from opentdx.utils.bitmap import FieldBit, PresetField, FieldSelection
 from functools import wraps
 
 
@@ -89,11 +89,9 @@ class CommonClientMixin:
         self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000,
         sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT,
         sort_order=SORT_ORDER.DESC,
-        fields: list[FieldBit] | PresetField | None = None,
+        fields: FieldBit | PresetField | FieldSelection | list[FieldBit] | None = None,
     ):
         """
-        获取板块成分股的实时行情报价
-        
         分页获取指定板块成分股的实时行情数据，支持按涨跌幅、成交量等字段排序。
         与 get_board_members 不同的是，此方法返回的是带有实时行情数据的成分股列表。
         内部会自动处理分页逻辑，每次最多获取80条记录。
@@ -516,7 +514,7 @@ class CommonClientMixin:
     def get_symbol_quotes(
         self,
         code_list: list[tuple[MARKET | EX_MARKET, str]],
-        fields: list[FieldBit] | PresetField | None = None,
+        fields: FieldBit | PresetField | FieldSelection | list[FieldBit] | None = None,
     ):
         """
         获取多个股票的实时行情报价

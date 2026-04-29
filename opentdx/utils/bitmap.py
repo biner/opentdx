@@ -1,4 +1,5 @@
 # coding=utf-8
+from __future__ import annotations
 from enum import Enum, IntEnum
 from opentdx.utils.log import log
 
@@ -170,9 +171,66 @@ class FieldBit(IntEnum):
         """返回显示名称"""
         return self.info[0] if self.info else "unknow"
 
+
+class FieldSelection:
+    """字段选择器，支持 PresetField 与 FieldBit 的组合
+
+    Usage:
+        PresetField.BASIC + FieldBit.AH_CODE
+        PresetField.BASIC + FieldBit.INDUSTRY + FieldBit.LOT_SIZE
+        FieldBit.OPEN + FieldBit.HIGH + FieldBit.LOW
+    """
+    __slots__ = ('_fields',)
+
+    def __init__(self, *parts: FieldBit | PresetField | FieldSelection):
+        seen = set()
+        result = []
+        for part in parts:
+            source = (part.value if isinstance(part, PresetField)
+                      else (part,) if isinstance(part, FieldBit)
+                      else part._fields)
+            for bit in source:
+                if bit not in seen:
+                    seen.add(bit)
+                    result.append(bit)
+        self._fields = tuple(result)
+
+    def __add__(self, other) -> FieldSelection:
+        if isinstance(other, (FieldBit, PresetField, FieldSelection)):
+            return FieldSelection(self, other)
+        return NotImplemented
+
+    def __or__(self, other) -> FieldSelection:
+        return self.__add__(other)
+
+    def __radd__(self, other) -> FieldSelection:
+        if isinstance(other, (FieldBit, PresetField)):
+            return FieldSelection(other, self)
+        return NotImplemented
+
+    def __ror__(self, other) -> FieldSelection:
+        return self.__radd__(other)
+
+    def __iter__(self):
+        return iter(self._fields)
+
+    def __len__(self):
+        return len(self._fields)
+
+    def __bool__(self):
+        return bool(self._fields)
+
+    def __contains__(self, item):
+        return item in self._fields
+
+    def __repr__(self):
+        names = [bit.name for bit in self._fields]
+        return f"FieldSelection([{', '.join(names)}])"
+
 # 预定义字段集合（快捷方式）
 class PresetField(Enum):
     NONE = ()
+    OHLC = (FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE)
     BASIC = (FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL)
     QUOTE = (FieldBit.BID, FieldBit.ASK, FieldBit.BID_VOLUME, FieldBit.ASK_VOLUME, FieldBit.LAST_VOLUME)
     VOLUME = (FieldBit.VOL, FieldBit.AMOUNT, FieldBit.TURNOVER, FieldBit.VOL_RATIO)
@@ -195,6 +253,22 @@ class PresetField(Enum):
                 FieldBit.SPEED_PCT, FieldBit.FLAG_KCB, FieldBit.PE_TTM, FieldBit.PE_STATIC, FieldBit.UNKNOWN_CLOSE_PRICE)
     ALL = tuple(FieldBit)
 
+    def __add__(self, other) -> FieldSelection:
+        if isinstance(other, (FieldBit, PresetField, FieldSelection)):
+            return FieldSelection(self, other)
+        return NotImplemented
+
+    def __or__(self, other) -> FieldSelection:
+        return self.__add__(other)
+
+    def __radd__(self, other) -> FieldSelection:
+        if isinstance(other, (FieldBit, FieldSelection)):
+            return FieldSelection(other, self)
+        return NotImplemented
+
+    def __ror__(self, other) -> FieldSelection:
+        return self.__radd__(other)
+
 
 def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
     bitmap_int = int.from_bytes(bitmap_bytes, 'little')
@@ -207,8 +281,11 @@ def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
     return active_bits
 
 
-def build_bitmap(fields: list[FieldBit]) -> bytearray:
+def build_bitmap(fields: FieldBit | PresetField | FieldSelection | list[FieldBit]) -> bytearray:
+    source = (fields.value if isinstance(fields, PresetField)
+              else (fields,) if isinstance(fields, FieldBit)
+              else fields)
     bitmap = bytearray(20)
-    for bit in fields:
+    for bit in source:
         bitmap[bit.value // 8] |= (1 << bit.value % 8)
     return bitmap

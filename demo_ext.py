@@ -67,7 +67,7 @@ if __name__ == "__main__":
     print(df)
             
     print("支持自定义字段 ohlc , 增加ah_code , 查询881394板块-券商板块")
-    rs = client.get_board_members_quotes(board_symbol="881394", count=100, fields=[FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE ,FieldBit.INDUSTRY])
+    rs = client.get_board_members_quotes(board_symbol="881394", count=100, fields=PresetField.OHLC + FieldBit.AH_CODE + FieldBit.LOT_SIZE + FieldBit.INDUSTRY)
     df = pd.DataFrame(rs)
     
     if 'ah_code' in df.columns:  # 正确的检查列是否存在的方式
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     
     print("支持自定义字段 ohlc , 增加ah_code , 查询880201板块-黑龙江板块")
 
-    rs = client.get_board_members_quotes(board_symbol="880201", count=100, fields=[FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.INDUSTRY])
+    rs = client.get_board_members_quotes(board_symbol="880201", count=100, fields=PresetField.OHLC + FieldBit.INDUSTRY)
     df = pd.DataFrame(rs)
 
     if 'industry' in df.columns:  # 正确的检查列是否存在的方式
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     
     print("支持自定义字段 ohlc")
-    rs = client.get_board_members_quotes(board_symbol=board_symbol, count=10, fields=[FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE])
+    rs = client.get_board_members_quotes(board_symbol=board_symbol, count=10, fields=PresetField.OHLC)
     df = pd.DataFrame(rs)
     print(df)
     
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     
 
     print("支持自定义字段 ohlc , 增加ah_code , [HK0266] 反向查询A股代码")
-    rs = exClient.get_board_members_quotes(board_symbol="HK0266", count=10, fields=[FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE])
+    rs = exClient.get_board_members_quotes(board_symbol="HK0266", count=10, fields=PresetField.OHLC + FieldBit.AH_CODE)
     df = pd.DataFrame(rs)
     print(df)
     
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     
     print("查询香港主板")
     board_symbol = EX_CATEGORY.HSI
-    rs = exClient.get_board_members_quotes(board_symbol=board_symbol, count=10, fields=[FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE])
+    rs = exClient.get_board_members_quotes(board_symbol=board_symbol, count=10, fields=PresetField.OHLC + FieldBit.AH_CODE)
     df = pd.DataFrame(rs)
     print(f"查询香港主板 {board_symbol} 成员数量: {len(df)} 展示部分:")
     print(df[:3])
