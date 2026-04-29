@@ -9,35 +9,35 @@ from datetime import datetime
 from contextlib import contextmanager
 from opentdx.client.macQuotationClient import macQuotationClient
 from opentdx.const import MARKET
+from zoneinfo import ZoneInfo
 
 
 def is_trading_time() -> bool:
     """
-    判断当前是否为交易时间
-    
+    判断当前是否为A股交易时间（基于中国时区）
     A股交易时间：
     - 上午：9:30 - 11:30
     - 下午：13:00 - 15:00
-    
     Returns:
         bool: True 表示交易时间，False 表示盘后
     """
-    now = datetime.now()
-    current_time = now.time()
-    
-    # 定义交易时间段
+    # 获取中国时区当前时间
+    china_tz = ZoneInfo("Asia/Shanghai")
+    now = datetime.now(china_tz)          # 带时区的 datetime
+    current_time = now.time()             # time 对象（时区信息已隐含）
+
+    # 定义交易时间段（按照你的代码逻辑，保留原数值）
     morning_start = datetime.strptime("09:15:00", "%H:%M:%S").time()
-    morning_end = datetime.strptime("11:35:00", "%H:%M:%S").time()
+    morning_end   = datetime.strptime("11:35:00", "%H:%M:%S").time()
     afternoon_start = datetime.strptime("12:55:00", "%H:%M:%S").time()
-    afternoon_end = datetime.strptime("15:05:00", "%H:%M:%S").time()
-    
-    # 判断是否在交易时间内
+    afternoon_end   = datetime.strptime("15:05:00", "%H:%M:%S").time()
+
+    # 判断
     if (morning_start <= current_time <= morning_end) or \
        (afternoon_start <= current_time <= afternoon_end):
         return True
     else:
         return False
-
 
 @contextmanager
 def mac_quotation_client():
@@ -268,7 +268,8 @@ def run_market_monitor(interval: int = 5, count: int = 100, split: bool = True, 
                         # 交易时间：使用正常间隔
                         wait_time = max(wait_time, 0.1)
                         if split:
-                            now = datetime.now()
+                            china_tz = ZoneInfo("Asia/Shanghai")
+                            now = datetime.now(china_tz)
                             current_time = now.strftime('%H:%M:%S')
                             click.echo(click.style(f"[{current_time}] 新: {len(all_data)} {trade_txt} 下次刷新: {wait_time}秒后... (按 Ctrl+C 退出)", fg='cyan'))
                             click.echo(click.style("=" * 80, fg='cyan'))
@@ -277,8 +278,10 @@ def run_market_monitor(interval: int = 5, count: int = 100, split: bool = True, 
                         # 判断是否为交易时间
                         fg = 'yellow' if is_trading_time() else 'blue'
 
-                        # 获取当前时间作为参考
-                        now = datetime.now()
+                        # 获取当前时间作为参考+
+                        china_tz = ZoneInfo("Asia/Shanghai")
+                        now = datetime.now(china_tz)
+                        
                         current_time = now.strftime('%H:%M:%S')
                         
                         click.echo(click.style(f"[{current_time}]  {trade_txt} .下次刷新: {wait_time}秒后... (按 Ctrl+C 退出)", fg=fg))
