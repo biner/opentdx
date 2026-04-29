@@ -19,7 +19,6 @@ class MarketMonitor(BaseParser): # 主力监控
         
     @override
     def deserialize(self, data):
-        print(data)
         count,  = struct.unpack('<H', data[:2])
         results = []
         for i in range(count):
