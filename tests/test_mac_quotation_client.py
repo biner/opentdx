@@ -3,6 +3,7 @@ from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_BOARD_TYPE, EX_MARKET
 import pandas as pd
 import pytest
 from opentdx.utils.help import industry_to_board_symbol, ah_code_to_symbol, lot_size_to_symbol
+from datetime import time
 from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField
 
 class TestMacQuotationClientLogin:
@@ -79,9 +80,8 @@ class TestMacQuotationClientBoard:
 
     def test_get_board_count(self, mqc):
         result = mqc.get_board_count(BOARD_TYPE.HY)
-        assert result is not None
-        assert 'total' in result
-        assert result['total'] > 0
+        assert isinstance(result, int)
+        assert result > 0
 
     def test_get_board_list(self, mqc):
         result = mqc.get_board_list(BOARD_TYPE.HY, count=5)
@@ -287,9 +287,7 @@ class TestMacQuotationClientExchange:
 
         print("支持自定义字段 ohlc , 增加ah_code , 查询880201板块-黑龙江板块")
 
-        industry_bit = 0x1c
-        ah_code_filter =  (1 << industry_bit)
-        rs = mqc.get_board_members_quotes(board_symbol="880201",count=100, filter=ah_code_filter)
+        rs = mqc.get_board_members_quotes(board_symbol="880201", count=100, fields=[FieldBit.INDUSTRY])
         df = pd.DataFrame(rs)
 
         if 'industry' in df.columns:  # 正确的检查列是否存在的方式
@@ -537,7 +535,6 @@ class TestMacQuotationClientSymbolQuotes:
         
         # 验证返回结构
         assert isinstance(result, dict), f"返回类型应为dict，实际为{type(result)}"
-        assert "field_bitmap" in result, "返回值应包含field_bitmap字段"
         assert "count" in result, "返回值应包含count字段"
         assert "stocks" in result, "返回值应包含stocks字段"
         assert result["count"] == len(code_list), f"返回数量应与请求数量一致"
@@ -675,9 +672,6 @@ class TestMacQuotationClientSymbolQuotes:
             assert "bid" not in stock, "BASIC字段集不应包含bid"
             assert "ask" not in stock, "BASIC字段集不应包含ask"
             assert "turnover" not in stock, "BASIC字段集不应包含turnover"
-            
-            
-        print(f"Custom filter测试结果: 位图={result['field_bitmap'][:16]}...")
         
 
 class TestMacQuotationClientSymbolTransaction:
@@ -708,7 +702,7 @@ class TestMacQuotationClientSymbolTransaction:
         assert len(result) > 0, "应至少返回一笔成交数据"
         
         # 验证每笔成交记录的字段
-        required_tx_fields = ['time', 'price', 'volume', 'trade_count', 'bs_flag ']
+        required_tx_fields = ['time', 'price', 'volume', 'trade_count', 'bs_flag']
         
         for i, tx in enumerate(result):
             assert isinstance(tx, dict), f"第{i}笔成交应为字典类型"
@@ -717,28 +711,24 @@ class TestMacQuotationClientSymbolTransaction:
                 assert field in tx, f"第{i}笔成交缺少字段: {field}"
             
             # 验证字段类型
-            assert isinstance(tx['time'], str), f"第{i}笔成交 time 应为字符串"
+            assert isinstance(tx['time'], time), f"第{i}笔成交 time 应为time类型"
             assert isinstance(tx['price'], float), f"第{i}笔成交 price 应为浮点数"
             assert isinstance(tx['volume'], int), f"第{i}笔成交 volume 应为整数"
             assert isinstance(tx['trade_count'], int), f"第{i}笔成交 trade_count 应为整数"
-            assert isinstance(tx['bs_flag '], int), f"第{i}笔成交 bs_flag 应为整数"
+            assert isinstance(tx['bs_flag'], int), f"第{i}笔成交 bs_flag 应为整数"
             
-            # 验证时间格式 (HH:MM:SS)
-            time_parts = tx['time'].split(':')
-            assert len(time_parts) == 3, f"第{i}笔成交 time 格式错误: {tx['time']}"
-            assert 0 <= int(time_parts[0]) <= 23, f"第{i}笔成交 小时超出范围"
-            assert 0 <= int(time_parts[1]) <= 59, f"第{i}笔成交 分钟超出范围"
-            assert 0 <= int(time_parts[2]) <= 59, f"第{i}笔成交 秒超出范围"
-            
+            # 验证时间格式
+            assert isinstance(tx['time'], time), f"第{i}笔成交 time 应为time类型"
+
             # 验证价格合理性
             assert tx['price'] > 0, f"第{i}笔成交价格应大于0"
-            
+
             # 验证成交量合理性
             assert tx['volume'] >= 0, f"第{i}笔成交量应大于等于0"
-            
+
             # 验证买卖方向标志
-            assert tx['bs_flag '] in [0, 1, 2, 5], \
-                f"第{i}笔成交 bs_flag 值无效: {tx['bs_flag ']} (应为0/1/2/5)"
+            assert tx['bs_flag'] in [0, 1, 2, 5], \
+                f"第{i}笔成交 bs_flag 值无效: {tx['bs_flag']} (应为0/1/2/5)"
         
         print(f"数据结构测试通过: 验证了{len(result)}笔成交记录")
 
@@ -868,7 +858,7 @@ class TestMacQuotationClientSymbolTransaction:
         assert len(result) > 0, "应返回成交数据"
         
         # 统计买卖方向分布
-        bs_flags = [tx['bs_flag '] for tx in result]
+        bs_flags = [tx['bs_flag'] for tx in result]
         buy_count = bs_flags.count(0)   # 买入
         sell_count = bs_flags.count(1)  # 卖出
         neutral_count = bs_flags.count(2)  # 中性盘

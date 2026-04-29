@@ -5,7 +5,6 @@ from .commonClientMixin import CommonClientMixin
 from opentdx.parser.mac_quotation import Unusual
 from opentdx.const import MARKET, mac_hosts, mac_ex_hosts
 
-# class macQuotationClient(BaseStockClient, CommonClientMixin):
 class macQuotationClient(QuotationClient, CommonClientMixin):
     def __init__(self, multithread=False, heartbeat=False, auto_retry=False, raise_exception=False):
         super().__init__(multithread, heartbeat, auto_retry, raise_exception)
@@ -122,7 +121,6 @@ class macQuotationClient(QuotationClient, CommonClientMixin):
         )
         
 
-# class macExQuotationClient(BaseStockClient, CommonClientMixin):
 class macExQuotationClient(exQuotationClient, CommonClientMixin):
     def __init__(self, multithread=False, heartbeat=False, auto_retry=False, raise_exception=False):
         super().__init__(multithread, heartbeat, auto_retry, raise_exception)

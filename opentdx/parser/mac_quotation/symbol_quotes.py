@@ -1,33 +1,26 @@
 import struct
-from typing import List, Tuple
 
-from opentdx._typing import override
+from typing import override
 from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.const import MARKET, EX_MARKET
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import FIELD_BITMAP_MAP, SYMBOL_QUOTES_DEFAULT_HEX, QUOTES_DEBUG_HEX, QUOTES_DEBUG_ALL_HEX, FieldBit, PresetField
+from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField, build_bitmap
+
 @register_parser(0x122B, 1)
 class SymbolQuotes(BaseParser):
-    
-    def __init__(self, code_list: List[Tuple[MARKET | EX_MARKET, str]], fields: list[FieldBit] | PresetField = PresetField.COMMON):
+
+    def __init__(self, code_list: list[tuple[MARKET | EX_MARKET, str]], fields: list[FieldBit] | PresetField = PresetField.COMMON):
         if isinstance(fields, PresetField):
             fields = fields.value
-            
-        bit_fields = [field.value for field in fields]
-        bitmap = bytearray(20)
-        for bit in bit_fields:
-            byte_index = bit // 8
-            bit_index = bit % 8
-            bitmap[byte_index] |= (1 << bit_index)
-        
-        self.body = bitmap + struct.pack('H', len(code_list))
+
+        self.body = build_bitmap(fields) + struct.pack('H', len(code_list))
         for market, code in code_list:
             self.body.extend(struct.pack('<H22s', market.value, code.encode('gbk')))
 
     @override
     def deserialize(self, data):
-        field_bitmap = data[:20]  # 前20字节是字段位图
-        total, row_count = struct.unpack("<IH", data[20:26])  # 接着是总行数和当前返回行数
+        field_bitmap = data[:20]
+        total, row_count = struct.unpack("<IH", data[20:26])
 
         # 检测新字段：对比请求位图和已知字段映射
         known_max_bit = max(FIELD_BITMAP_MAP.keys()) if FIELD_BITMAP_MAP else -1
@@ -36,18 +29,17 @@ class SymbolQuotes(BaseParser):
                 log.debug(f"[DEBUG] 位图中检测到未知字段 位{bit_pos}，需要分析其含义")
         
         stocks = []
-        # 计算每行总长度
         quotes_field_count = int.from_bytes(field_bitmap, 'little').bit_count()
         row_len = 68 + 4 * quotes_field_count
         for i in range(row_count):
             row_data = data[26 + i * row_len : 26 + (i + 1) * row_len]
-            
+
             market, symbol, name = struct.unpack("<H22s44s", row_data[:68])
             # 目前MARKET 为 0 , 1, 2 
             try:
-                market = MARKET(market) if market <= 3 else  EX_MARKET(market)
-            except Exception as e:
-                print(f"[ERROR] 解析市场信息出错: {e}")
+                market = MARKET(market) if market <= 3 else EX_MARKET(market)
+            except Exception:
+                log.error(f"解析市场信息出错: market={market}")
                 market = EX_MARKET.TEMP_STOCK
 
             stock_dict = {
@@ -68,7 +60,6 @@ class SymbolQuotes(BaseParser):
                                 value, = struct.unpack('<i', value_bytes)
                             except Exception:
                                 pass
-                        log.debug(f"[DEBUG] 解析字段 位{i} -> {field_name}，格式: {field_format}, 数据位置: {68 + (index * 4)}, 原始数据: {value_bytes.hex()}, 解析值: {value}")
                         stock_dict[field_name] = value
                         index += 1
 
@@ -84,14 +75,11 @@ class SymbolQuotes(BaseParser):
                     else:
                         # 港股市场：ah_code 对应的是A股，需要格式化为6位，不足前面补0
                         stock_dict["ah_code"] = str(ah_code_raw).zfill(6)
-            
+
             stocks.append(stock_dict)
-            
+
         return {
-            "field_bitmap": field_bitmap,
             "count": row_count,
             "total": total,
             "stocks": stocks,
         }
-
-

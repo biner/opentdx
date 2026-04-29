@@ -1,15 +1,15 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.utils.help import get_price
 
 
-@register_parser(0x51d) # TODO: 未完成
+@register_parser(0x51d)
 class IndexInfo(BaseParser): 
     def __init__(self, market: MARKET, code: str):
-        self.body = struct.pack(u'<H6sI', market.value, code.encode('gbk'), 0)
+        self.body = struct.pack('<H6sI', market.value, code.encode('gbk'), 0)
 
     @override
     def deserialize(self, data):

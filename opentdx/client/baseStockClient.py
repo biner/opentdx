@@ -12,7 +12,6 @@ import struct
 import functools
 
 CONNECT_TIMEOUT = 5.000
-RECV_HEADER_LEN = 0x10
 RSP_HEADER_LEN = 0x10
 
 def update_last_ack_time(func):

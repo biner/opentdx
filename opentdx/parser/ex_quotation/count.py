@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.parser.baseParser import BaseParser, register_parser
 
@@ -8,5 +8,5 @@ from opentdx.parser.baseParser import BaseParser, register_parser
 class Count(BaseParser): # ?
     @override
     def deserialize(self, data):
-        id, _, _, count, _, _ = struct.unpack('<11s5I', data[:31])
+        market_id, _, _, count, _, _ = struct.unpack('<11s5I', data[:31])
         return count

@@ -1,6 +1,6 @@
 from datetime import time
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -10,7 +10,7 @@ from opentdx.utils.help import get_price
 @register_parser(0xfc5)
 class Transaction(BaseParser):
     def __init__(self, market: MARKET, code: str, start: int, count: int):
-        self.body = struct.pack(u'<H6sHH', market.value, code.encode('gbk'), start, count)
+        self.body = struct.pack('<H6sHH', market.value, code.encode('gbk'), start, count)
 
     @override
     def deserialize(self, data):

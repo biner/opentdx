@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -9,7 +9,7 @@ from opentdx.utils.help import get_price
 @register_parser(0x51c)
 class IndexMomentum(BaseParser):
     def __init__(self, market: MARKET, code: str):
-        self.body = struct.pack(u'<H6s', market.value, code.encode('gbk'))
+        self.body = struct.pack('<H6s', market.value, code.encode('gbk'))
     
     @override
     def deserialize(self, data):

@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET, PERIOD, ADJUST
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -9,7 +9,7 @@ from opentdx.utils.help import get_price, to_datetime
 @register_parser(0x523)
 class K_Line(BaseParser):
     def __init__(self, market: MARKET, code: str, period: PERIOD, times: int = 1, start: int = 0, count: int = 800, adjust: ADJUST= ADJUST.NONE):
-        self.body = struct.pack(u'<H6sHHHHH8s', market.value, code.encode('gbk'), period.value, times, start, count, adjust.value, b'')
+        self.body = struct.pack('<H6sHHHHH8s', market.value, code.encode('gbk'), period.value, times, start, count, adjust.value, b'')
         
         self.period = period
         

@@ -1,10 +1,8 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
-
-# > d10f 0000 303030393231 0000000000000000000000000000000001001400000000010000000000 0c2b080002000f000f00470501000030303039323100000000
 
 @register_parser(0xfd1)
 class ChartSampling(BaseParser):

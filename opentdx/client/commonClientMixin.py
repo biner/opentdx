@@ -1,5 +1,3 @@
-from typing import Tuple, Union, List,  Optional
-
 import pandas as pd
 
 from datetime import date
@@ -7,7 +5,7 @@ from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
 from opentdx.parser.mac_quotation import BoardList, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes, SymbolTransaction
 from opentdx.utils.log import log
-from opentdx.utils.bitmap import FieldBit, PresetField, convert_fields_to_filter
+from opentdx.utils.bitmap import FieldBit, PresetField
 from functools import wraps
 
 
@@ -36,18 +34,14 @@ class CommonClientMixin:
         """
         # 如果未传入 hosts，根据子类类型自动选择默认值
         if hosts is None:
-            # 获取调用者的类名
             class_name = self.__class__.__name__
-            
-            # 根据类名判断使用哪个默认 hosts
             if class_name == "QuotationClient":
                 hosts = mac_hosts
             elif class_name == "exQuotationClient":
                 hosts = mac_ex_hosts
             else:
-                # 默认使用 mac_hosts
                 hosts = mac_hosts
-        
+
         self.hosts = hosts
         self._sp_mode_enabled = True
         return self
@@ -62,12 +56,12 @@ class CommonClientMixin:
             
     @require_sp_mode
     @update_last_ack_time
-    def get_board_count(self, market: Union[BOARD_TYPE, EX_BOARD_TYPE]):
+    def get_board_count(self, market: BOARD_TYPE | EX_BOARD_TYPE):
         return self.call(BoardList(market))['total']
 
     @require_sp_mode
     @update_last_ack_time
-    def get_board_list(self, market: Union[BOARD_TYPE, EX_BOARD_TYPE], count=10000):
+    def get_board_list(self, market: BOARD_TYPE | EX_BOARD_TYPE, count=10000):
         MAX_LIST_COUNT = 150
         security_list = []
         page_size = min(count, MAX_LIST_COUNT)
@@ -78,11 +72,12 @@ class CommonClientMixin:
         for start in range(0, count, page_size):
             current_count = min(page_size, count - start)
             part = self.call(BoardList(board_type=market, start=start, page_size=current_count))
-            
-            if len(part) > 0:
-                security_list.extend(part)
-            
-            if len(part) < current_count:
+            items = part["items"]
+
+            if len(items) > 0:
+                security_list.extend(items)
+
+            if len(items) < current_count:
                 log.debug(f"{msg} 数据量不足，获取结束")
                 break
                 
@@ -91,11 +86,10 @@ class CommonClientMixin:
     @require_sp_mode
     @update_last_ack_time
     def get_board_members_quotes(
-        self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000, 
-        sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT, 
-        sort_order=SORT_ORDER.DESC, 
+        self, board_symbol: str | CATEGORY | EX_CATEGORY = "881001", count=100000,
+        sort_type: SORT_TYPE = SORT_TYPE.CHANGE_PCT,
+        sort_order=SORT_ORDER.DESC,
         fields: list[FieldBit] | PresetField | None = None,
-        filter=0
     ):
         """
         获取板块成分股的实时行情报价
@@ -173,19 +167,12 @@ class CommonClientMixin:
         """
         MAX_LIST_COUNT = 80
         security_list = []
-        
         msg = f"TDX 板块成分报价：{board_symbol} 查询总量{count}"
         log.debug(msg)
-        
-        # 如果 fields 参数不为 None，将其转换为 filter
-        if fields is not None:
-            filter = convert_fields_to_filter(fields)
-            log.debug(f"fields 转换为 filter: {filter:#x}")
 
-            
         for start in range(0, count, MAX_LIST_COUNT):
             current_count = min(MAX_LIST_COUNT, count - start)
-            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, filter=filter))
+            rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=start, page_size=current_count, sort_type=sort_type, sort_order=sort_order, fields=fields if fields else PresetField.COMMON))
             part = rs["stocks"]
             
             if len(part) > 0:
@@ -302,16 +289,13 @@ class CommonClientMixin:
         log.debug(msg)
         
         rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order))
-        # total = rs["total"]
 
         return rs
     
     @require_sp_mode
     @update_last_ack_time
     def get_symbol_belong_board(self, symbol: str, market: MARKET) -> pd.DataFrame:
-        parser = SymbolBelongBoard(symbol=symbol, market=market)
-        df = self.call(parser)
-        return df
+        return self.call(SymbolBelongBoard(symbol=symbol, market=market))
     
     @require_sp_mode
     @update_last_ack_time
@@ -455,7 +439,7 @@ class CommonClientMixin:
     @require_sp_mode    
     @update_last_ack_time
     def get_symbol_tick_chart(
-        self, market: MARKET | EX_MARKET, code: str, query_date : date = None
+        self, market: MARKET | EX_MARKET, code: str, query_date: date = None
     ):
         """
         获取指定股票的分时行情,240根k线(支持指定日期)
@@ -530,10 +514,9 @@ class CommonClientMixin:
     @require_sp_mode
     @update_last_ack_time
     def get_symbol_quotes(
-        self, 
-        code_list: List[Tuple[MARKET | EX_MARKET, str]],
+        self,
+        code_list: list[tuple[MARKET | EX_MARKET, str]],
         fields: list[FieldBit] | PresetField | None = None,
-        filter=0
     ):
         """
         获取多个股票的实时行情报价
@@ -549,14 +532,7 @@ class CommonClientMixin:
         Returns:
             dict: 包含 field_bitmap、count、stocks 的字典
         """
-        # 如果 fields 参数不为 None，将其转换为 filter
-        if fields is not None:
-            filter = convert_fields_to_filter(fields)
-            log.debug(f"fields 转换为 filter: {filter:#x}")
-            
-
-            
-        return self.call(SymbolQuotes(code_list=code_list, filter=filter))
+        return self.call(SymbolQuotes(code_list=code_list, fields=fields if fields else PresetField.COMMON))
 
     @require_sp_mode    
     @update_last_ack_time

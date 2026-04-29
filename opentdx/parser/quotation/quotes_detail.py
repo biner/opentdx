@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -8,10 +8,10 @@ from opentdx.utils.help import format_time, get_price
 
 @register_parser(0x53e) # TODO: 
 class QuotesDetail(BaseParser):
-    def __init__(self, stocks: list[MARKET, str]):
+    def __init__(self, stocks: list[tuple[MARKET, str]]):
         count = len(stocks)
         if count <= 0:
-            raise Exception('stocks count must > 0')
+            raise ValueError('stocks count must > 0')
         self.body = bytearray(struct.pack('<H6sH', 5, b'', count))
         
         for market, code in stocks:
@@ -47,7 +47,7 @@ class QuotesDetail(BaseParser):
 
             bids = []
             asks = []
-            for _ in range(5): # 5个
+            for _ in range(5):
                 bid, pos = get_price(data, pos)
                 ask, pos = get_price(data, pos)
                 bid_vol, pos = get_price(data, pos)
@@ -82,15 +82,15 @@ class QuotesDetail(BaseParser):
                 'cur_vol': cur_vol,
                 'amount': amount,
                 's_vol': s_vol,
-                'b_vol': b_vol, # 外盘
+                'b_vol': b_vol,
                 's_amount': s_amount,
-                'open_amount': open_amount,# 开盘金额
+                'open_amount': open_amount,
                 'handicap': {
                     'bid': bids,
                     'ask': asks,
                 },
                 'unknown': format(unknown, '016b'),
-                'rise_speed': rise_speed, # 涨速
+                'rise_speed': rise_speed,
                 'active1': active1,
                 'active2': active2,
             })

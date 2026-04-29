@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import BOARD_TYPE, EX_BOARD_TYPE, EX_MARKET, MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -15,39 +15,27 @@ class BoardList(BaseParser):
     def deserialize(self, data):
         count_all, total = struct.unpack("<HH", data[:4])
         # 外部传入 page_size , count_all 会是两倍. 这是将 board_info 和 symbol_info 都累加了
-        count = int(count_all / 2)
-        
+        count = count_all // 2
+
         fmt = "<H6s16x44sfff H6s16x44sfff"
         fmt_length = struct.calcsize(fmt)
 
+        result = []
         for i in range(count):
-            (
-                market,
-                code,
-                name,
-                price,
-                rise_speed,
-                pre_close,
-                symbol_market,
-                symbol_code,
-                symbol_name,
-                symbol_price,
-                symbol_rise_speed,
-                symbol_pre_close,
-            ) = struct.unpack(fmt, data[i * 160 + 4 :fmt_length])
+            market, code, name, price, rise_speed, pre_close, symbol_market, symbol_code, symbol_name, symbol_price, symbol_rise_speed, symbol_pre_close = struct.unpack(fmt, data[i * 160 + 4 : i * 160 + 4 + fmt_length])
+            result.append({
+                "market": MARKET(market) if market <= 3 else EX_MARKET(market),
+                "code": code.decode("gbk").replace("\x00", ""),
+                "name": name.decode("gbk").replace("\x00", ""),
+                "price": price,
+                "rise_speed": rise_speed,
+                "pre_close": pre_close,
+                "symbol_market": MARKET(symbol_market) if symbol_market <= 3 else EX_MARKET(symbol_market),
+                "symbol_code": symbol_code.decode("gbk").replace("\x00", ""),
+                "symbol_name": symbol_name.decode("gbk").replace("\x00", ""),
+                "symbol_price": symbol_price,
+                "symbol_rise_speed": symbol_rise_speed,
+                "symbol_pre_close": symbol_pre_close,
+            })
 
-        return {
-            "market": MARKET(market) if market <=3 else EX_MARKET(market),
-            "total": total,
-            "code": code.decode("gbk").replace("\x00", ""),
-            "name": name.decode("gbk").replace("\x00", ""),
-            "price": price,
-            "rise_speed": rise_speed,
-            "pre_close": pre_close,
-            "symbol_market": MARKET(symbol_market) if symbol_market <=3 else EX_MARKET(symbol_market),
-            "symbol_code": symbol_code.decode("gbk").replace("\x00", ""),
-            "symbol_name": symbol_name.decode("gbk").replace("\x00", ""),
-            "symbol_price": symbol_price,
-            "symbol_rise_speed": symbol_rise_speed,
-            "symbol_pre_close": symbol_pre_close,
-        }
+        return {"total": total, "items": result}

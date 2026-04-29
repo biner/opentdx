@@ -1,5 +1,4 @@
 #coding=utf-8
-from __future__ import unicode_literals, division
 import struct
 
 
@@ -10,7 +9,7 @@ class TdxNotAssignVipdocPathException(Exception):
     pass
 
 
-class BaseReader(object):
+class BaseReader:
 
     def unpack_records(self, format, data):
         record_struct = struct.Struct(format)

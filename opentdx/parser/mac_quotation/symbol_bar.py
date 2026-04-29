@@ -1,32 +1,9 @@
 import struct
-from datetime import datetime, timedelta
-from typing import Union
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import EX_MARKET, MARKET, PERIOD, ADJUST
 from opentdx.parser.baseParser import BaseParser, register_parser
-
-
-# TODO 转移到公共类
-def combine_to_datetime(ymd, date_num, format_tdx_time=False):
-    # 解析日期
-    date_str = str(ymd)
-    year = int(date_str[:4])
-    month = int(date_str[4:6])
-    day = int(date_str[6:8])
-
-    # date_num 是从午夜开始的秒数
-    seconds = date_num
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-
-    dt = datetime(year, month, day, hours, minutes)
-    if format_tdx_time:
-        if 0 <= dt.hour <= 5:
-            dt = dt + timedelta(days=1)  # 或者 timedelta(hours=24)
-        else:
-            dt = dt
-    return dt
+from opentdx.utils.help import combine_to_datetime
 
 
 @register_parser(0x122E, 1)

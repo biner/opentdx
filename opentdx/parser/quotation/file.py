@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 from opentdx.const import BLOCK_FILE_TYPE
 from opentdx.parser.baseParser import BaseParser, register_parser
 
@@ -22,7 +22,7 @@ class Meta(BaseParser):
 
     @override
     def deserialize(self, data):
-        size, unknown1, hash_value, unknown2 = struct.unpack(u"<I1s32s1s", data)
+        size, unknown1, hash_value, unknown2 = struct.unpack("<I1s32s1s", data)
         return {
             "size": size,
             "hash_value" : hash_value,

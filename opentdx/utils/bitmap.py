@@ -1,23 +1,7 @@
 # coding=utf-8
 from enum import Enum, IntEnum
-from typing import Union, List
 from opentdx.utils.log import log
 
-SYMBOL_QUOTES_DEFAULT_HEX = "ffbc81cc3f080300000000000000000000000000"
-BOARD_MEMBERS_QUOTES_DEFAULT_HEX = "fffce1cc3f080301000000000000000000000000"
-
-QUOTES_DEBUG_HEX =     "ff ff ff ff ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00"
-QUOTES_DEBUG_ALL_HEX = "ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff"
-# 定义字段位图映射 (根据 TDX 协议定义)
-# 每一位代表一个4字节的字段是否存在
-# 通过对比静态解析和动态解析验证得出（基于实测数据）
-# 
-# 注意：所有字段（包括基础字段）都受位图控制
-# 位0-5: 基础字段 (pre_close, open, high, low, close, vol)
-# 位6+: 扩展字段
-#
-# 格式: {位位置: (字段名, 格式字符串, "说明")}
-# 格式字符串: '<f' = float (4字节浮点数), '<I' = uint32 (4字节无符号整数)
 FIELD_BITMAP_MAP = {
     # 基础字段（位0x0-0x5）- ✅ 100% 确认
     0x0: ("pre_close", '<f', "昨收"),
@@ -70,9 +54,9 @@ FIELD_BITMAP_MAP = {
     0x28: ("pe_ttm_vol_related", '<f', "市盈率TTM（与vol相关0.96，可能不是真正的PE TTM）"),  # ✅ 高相关
     0x29: ("ex_price_placeholder", '<f', "收盘价占位（与amount相关0.89，需验证）"),  # ⚠️ 中等相关
     0x2a: ("unknown_36_amount_related", '<f', "未知字段36（与amount相关0.90，需验证）"),  # ⚠️ 中等相关
-    0x2b: ("flag_kcb", '<I', "科创板标志 "), #688开头30101 #300开头50101
+    0x2b: ("flag_kcb", '<I', "科创板标志"), #688开头30101 #300开头50101
     0x2c: ("flag_bj", '<I', "北交所标志"),
-    0x2d: ("unknown_field_39_vol_related", '<f', "未知字段39（与vol相关0.99，高度相关）"),  # ✅ 高相关
+    0x2d: ("unknown_field_39_vol_related", '<f', "未知字段39（与vol相关0.99，高度相关）"),
 
     
     0x30: ("pe_ttm", '<f', "市盈率TTM"),
@@ -212,43 +196,6 @@ class PresetField(Enum):
     ALL = tuple(FieldBit)
 
 
-# def fields_to_filter(field_names: Union[str, List[str]]) -> int:
-#     """
-#     将字段名列表（或预定义集合名）转换为 filter 整数位掩码
-    
-#     Args:
-#         field_names: 可以是字段名列表，或预定义集合的键（如 'basic'），
-#                      或使用 '+' 连接的组合字符串，如 'basic+quote'
-    
-#     Returns:
-#         整数位掩码，每一位代表一个字段位位置
-#     """
-#     if isinstance(field_names, str):
-#         if '+' in field_names:
-#             parts = field_names.split('+')
-#             names = []
-#             for part in parts:
-#                 if part in PRESET_FIELDS:
-#                     names.extend(PRESET_FIELDS[part])
-#                 else:
-#                     names.append(part)
-#         elif field_names in PRESET_FIELDS:
-#             names = PRESET_FIELDS[field_names]
-#         else:
-#             names = [field_names]
-#     else:
-#         names = field_names
-    
-#     filter_val = 0
-#     for name in names:
-#         if name in FIELD_NAME_TO_BIT:
-#             bit_pos = FIELD_NAME_TO_BIT[name]
-#             filter_val |= (1 << bit_pos)
-#         else:
-#             log.warning(f"未知字段名: {name}，已忽略")
-#     return filter_val
-
-
 def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
     bitmap_int = int.from_bytes(bitmap_bytes, 'little')
     active_bits = []
@@ -260,44 +207,8 @@ def get_active_fields_from_bitmap(bitmap_bytes: bytes) -> list[int]:
     return active_bits
 
 
-def convert_fields_to_filter(fields: List[FieldBit] | PresetField | None) -> int:
-    """
-    将 fields 参数（FieldBit 列表或 PresetField 枚举）转换为 filter 整数位掩码
-    
-    Args:
-        fields: 可以是以下类型之一：
-                - None: 返回 0
-                - list[FieldBit]: FieldBit 枚举列表，如 [FieldBit.PRE_CLOSE, FieldBit.OPEN]
-                - PresetField: 预定义字段集合枚举，如 PresetField.BASIC
-    
-    Returns:
-        整数位掩码，如果 fields 为 None 则返回 0
-    
-    Examples:
-        >>> # 使用 PresetField
-        >>> convert_fields_to_filter(PresetField.BASIC)
-        
-        >>> # 使用 FieldBit 列表
-        >>> convert_fields_to_filter([FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH])
-        
-        >>> # 使用 None
-        >>> convert_fields_to_filter(None)  # 返回 0
-    """
-    if fields is None:
-        return 0
-    
-    # 处理 PresetField 枚举
-    if isinstance(fields, PresetField):
-        field_bits = fields.value
-    else:
-        # 假设是 FieldBit 列表
-        field_bits = fields
-    
-    filter_val = 0
-    for bit in field_bits:
-        if isinstance(bit, FieldBit):
-            filter_val |= (1 << bit.value)
-        else:
-            log.warning(f"无效的字段位: {bit}，已忽略")
-    
-    return filter_val
+def build_bitmap(fields: list[FieldBit]) -> bytearray:
+    bitmap = bytearray(20)
+    for bit in fields:
+        bitmap[bit.value // 8] |= (1 << bit.value % 8)
+    return bitmap

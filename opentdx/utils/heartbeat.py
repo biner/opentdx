@@ -17,7 +17,7 @@ class HeartBeatThread(Thread):
         self.stop_event = stop_event
         self.heartbeat = heartbeat
         self.heartbeat_interval = heartbeat_interval
-        super(HeartBeatThread, self).__init__()
+        super().__init__()
         self.last_ack_time = time.time()
         self._consecutive_heartbeat_count = 0  # 连续心跳计数
 

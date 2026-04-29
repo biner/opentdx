@@ -1,14 +1,14 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
 
 
-@register_parser(0x44d) # TODO: 2Unknown
+@register_parser(0x44d)
 class List(BaseParser):
     def __init__(self, market: MARKET, start: int = 0, count: int = 1600):
-        self.body = struct.pack(u'<H3I', market.value, start, count, 0)
+        self.body = struct.pack('<H3I', market.value, start, count, 0)
 
     @override
     def deserialize(self, data):

@@ -1,6 +1,6 @@
 """缓存管理模块"""
 import time
-from typing import Any, Optional
+from typing import Any
 from dataclasses import dataclass
 
 
@@ -18,7 +18,7 @@ class SimpleCache:
         self._cache: dict[str, CacheItem] = {}
         self._ttl = ttl_seconds
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """获取缓存数据"""
         item = self._cache.get(key)
         if item is None:
@@ -33,10 +33,7 @@ class SimpleCache:
 
     def set(self, key: str, value: Any) -> None:
         """设置缓存数据"""
-        self._cache[key] = CacheItem(
-            data=value,
-            expire_time=time.time() + self._ttl
-        )
+        self._cache[key] = CacheItem(data=value, expire_time=time.time() + self._ttl)
 
     def delete(self, key: str) -> None:
         """删除缓存"""
