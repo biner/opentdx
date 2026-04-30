@@ -23,6 +23,25 @@ if __name__ == "__main__":
     client.hosts = mac_hosts
     client.sp().connect().login()
     
+    code_list = [
+        (MARKET.SZ, '000001'),
+         (MARKET.SH, '600004'),
+          (MARKET.SH, '99999'),
+           (MARKET.SZ, '000008')
+    ]
+    code_list = [
+        (MARKET.SZ, '000100'),
+        (MARKET.SZ, '000066'),
+        (MARKET.SH, '603399'),
+    ]
+    rs = client.get_symbol_quotes(code_list=code_list,filter=-99)
+    print(rs['stocks'][0])
+    df = pd.DataFrame(rs['stocks'])
+    df.to_csv("test.csv")
+    df = df[['unknown_field_112','unknown_field_112']]
+    # print(df)
+    exit()
+    
     for i in range(0,15):
         rs = client.count_board_members(str(i))
         time.sleep(0.1)
