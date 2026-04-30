@@ -16,7 +16,7 @@ class SymbolCapitalFlow(BaseParser):
     def deserialize(self, data):
         market, query_info_str, ext = struct.unpack("<H12s5x8s", data[:27])
 
-        list_raw = struct.unpack(f"<{len(data) - 27}s", data[27:])
+        list_raw = struct.unpack(f"<{len(data) - 27}s", data[27:])[0]
         python_list = json.loads(list_raw.decode("gbk"))
 
         df = pd.DataFrame()

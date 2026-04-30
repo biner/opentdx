@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import date
 from .baseStockClient import update_last_ack_time
 from opentdx.const import ADJUST, BOARD_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, SORT_TYPE, SORT_ORDER, mac_hosts, mac_ex_hosts
-from opentdx.parser.mac_quotation import BoardList, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolZJLX,SymbolTickChart, SymbolQuotes, SymbolTransaction
+from opentdx.parser.mac_quotation import BoardList, BoardMembersQuotes, SymbolBar, SymbolBelongBoard, SymbolCapitalFlow,SymbolTickChart, SymbolQuotes, SymbolTransaction
 from opentdx.utils.log import log
 from opentdx.utils.bitmap import FieldBit, PresetField, FieldSelection
 from functools import wraps
@@ -331,7 +331,7 @@ class CommonClientMixin:
         if not isinstance(market, MARKET):
             raise TypeError(f"market 参数必须为 MARKET 类型，当前类型: {type(market).__name__}")
             
-        parser = SymbolZJLX(symbol=symbol, market=market)
+        parser = SymbolCapitalFlow(symbol=symbol, market=market)
         df = self.call(parser)
         return df
 
