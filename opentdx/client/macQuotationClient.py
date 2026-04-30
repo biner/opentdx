@@ -2,10 +2,9 @@ from .baseStockClient import BaseStockClient, _paginate, update_last_ack_time
 from .quotationClient import QuotationClient
 from .exQuotationClient import exQuotationClient
 from .commonClientMixin import CommonClientMixin
-from opentdx.parser.mac_quotation import MarketMonitor
+from opentdx.parser.mac_quotation import Unusual
 from opentdx.const import MARKET, mac_hosts, mac_ex_hosts
 
-# class macQuotationClient(BaseStockClient, CommonClientMixin):
 class macQuotationClient(QuotationClient, CommonClientMixin):
     def __init__(self, multithread=False, heartbeat=False, auto_retry=False, raise_exception=False):
         super().__init__(multithread, heartbeat, auto_retry, raise_exception)
@@ -117,12 +116,11 @@ class macQuotationClient(QuotationClient, CommonClientMixin):
             - desc 字段描述了具体的异动类型，可用于分类统计和策略触发
         """
         return _paginate(
-            lambda s, c: self.call(MarketMonitor(market, s, c)),
+            lambda s, c: self.call(Unusual(market, s, c)),
             600, count, start,
         )
         
 
-# class macExQuotationClient(BaseStockClient, CommonClientMixin):
 class macExQuotationClient(exQuotationClient, CommonClientMixin):
     def __init__(self, multithread=False, heartbeat=False, auto_retry=False, raise_exception=False):
         super().__init__(multithread, heartbeat, auto_retry, raise_exception)

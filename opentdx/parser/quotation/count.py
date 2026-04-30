@@ -1,6 +1,6 @@
 from datetime import date
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -10,7 +10,7 @@ from opentdx.parser.baseParser import BaseParser, register_parser
 class Count(BaseParser):
     def __init__(self, market: MARKET):
         today = date.today().year * 10000 + date.today().month * 100 + date.today().day
-        self.body = struct.pack(u'<HI', market.value, today)
+        self.body = struct.pack('<HI', market.value, today)
 
     @override
     def deserialize(self, data):

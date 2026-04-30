@@ -85,8 +85,6 @@ class CustomerBlockReader(BaseReader):
 
     def get_data(self, fname, result_type=BlockReader_TYPE_FLAT):
 
-        result = []
-
         if not os.path.isdir(fname):
             raise Exception('not a directory')
 
@@ -95,11 +93,10 @@ class CustomerBlockReader(BaseReader):
         if not os.path.exists(block_file):
             raise Exception('file not exists')
 
-        block_data = open(block_file,'rb').read()
+        block_data = open(block_file, 'rb').read()
 
         pos = 0
         result = []
-        # print(block_data.decode('gbk','ignore'))
         while pos < len(block_data):
             n1 = block_data[pos:pos + 50].decode('gbk', 'ignore').rstrip("\x00")
             n2 = block_data[pos + 50:pos + 120].decode('gbk', 'ignore').rstrip("\x00")
@@ -111,7 +108,7 @@ class CustomerBlockReader(BaseReader):
             if not os.path.exists(bf):
                 raise Exception('file not exists')
 
-            codes = open(bf).read().splitlines()
+            codes = open(bf, 'r').read().splitlines()
             if result_type == BlockReader_TYPE_FLAT:
                 for index,code in enumerate(codes):
                     if code != "":
@@ -136,14 +133,3 @@ class CustomerBlockReader(BaseReader):
                 )
 
         return result
-
-
-if __name__ == '__main__':
-    df = BlockReader().get_df("/Users/rainx/tmp/block_zs.dat")
-    print(df)
-    df2 = BlockReader().get_df("/Users/rainx/tmp/block_zs.dat", BlockReader_TYPE_GROUP)
-    print(df2)
-    df3 = CustomerBlockReader().get_df('C:/Users/fit/Desktop/blocknew')
-    print(df3)
-    df4 = CustomerBlockReader().get_df('C:/Users/fit/Desktop/blocknew',BlockReader_TYPE_GROUP)
-    print(df4)

@@ -1,138 +1,82 @@
 import struct
-from typing import List, Tuple
 
-from opentdx.parser.baseParser import register_parser
-from opentdx.parser.mac_quotation import BoardMembersQuotes
+from typing import override
+from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.const import MARKET, EX_MARKET
-from opentdx.utils.bitmap import SYMBOL_QUOTES_DEFAULT_HEX, QUOTES_DEBUG_HEX, QUOTES_DEBUG_ALL_HEX
+from opentdx.utils.log import log
+from opentdx.utils.bitmap import FIELD_BITMAP_MAP, FieldBit, PresetField, FieldSelection, build_bitmap
 
-# 正常应该是 BoardMembersQuotes extent SymbolQuotes. 但BoardMembersQuotes先解析了
-# @register_parser(0x122B, 1) ex服务器,需要 1 
 @register_parser(0x122B, 1)
-class SymbolQuotes(BoardMembersQuotes):
-    """
-    股票行情查询解析器 (命令字: 0x122B)
-    
-    ⚠️  **重要说明**: 
-    - 支持批量查询多只股票，服务器会返回所有股票的完整行情数据
-    - **支持自定义bitmap**：通过filter参数控制返回哪些字段，减少数据传输
-    
-    请求包结构:
-    - 命令字: 0x122B (由 serialize 自动添加)
-    - 字段位图: 20字节 (控制返回字段，与FIELD_BITMAP_MAP对应)
-    - 股票数量: 2字节 (uint16 LE) ← **入参count**
-    - 股票列表: 每个股票 = market(2字节) + code(22字节GBK编码，不足补0)
-    
-    响应数据结构:
-    - 字段位图: 20字节 ([0-19]) - 服务器回显的位图配置
-    - 查询总量 total: 2字节 ([20-21], uint16 LE) ← **入参回显** 
-    - 未知字段: 2字节 ([22-23], 通常为0)
-    - 返回总量: 2字节 ([24]: count低字节副本, [25]: 填充0)
-    - 股票数据列表: 每条记录180字节
-      * market: 2字节 (0=SZ, 1=SH, 2=BJ, >=3为EX_MARKET)
-      * code: 6字节 (GBK编码)
-      * 行情数据: 172字节（根据bitmap动态包含不同字段）
-        - 偏移60-79: 价格字段 (5个float): pre_close, open, high, low, close
-        - 偏移88-91: amount (成交金额，元)
-        - 偏移92-95: volume (成交量，手)
-        - 更多字段参考 FIELD_BITMAP_MAP
-    
-    
-    返回值结构 (dict):
-    ```python
-    {
-        "field_bitmap": "ffbc81cc...",  # 字段位图（hex字符串）
-        "count": 2,                      # 请求的股票数量
-        "stocks": [                      # 股票行情数据列表
-            {
-                "market": MARKET.SZ,
-                "code": "300385",
-                "pre_close": 15.0,
-                "open": 14.6,
-                "high": 14.8,
-                "low": 14.03,
-                "close": 14.21,
-                "change": -0.79,
-                "change_pct": -5.27,
-                "volume": 33314,
-                "amount": 260138928.0,
-                ...
-            },
-            ...
-        ]
-    }
-    ```
-    
-    示例:
-    ```python
-    from opentdx.parser.mac_quotation import SymbolQuotes
-    from opentdx.const import MARKET, EX_MARKET
-    from opentdx.utils.bitmap import fields_to_filter
-    
-    # 方式1: 默认bitmap（常用字段）
-    parser = SymbolQuotes(code_list=[
-        (MARKET.SZ, "300385"),
-        (MARKET.SH, "600519"),
-    ])
-    
-    # 方式2: 自定义字段组合
-    custom_filter = fields_to_filter('basic+volume')  # 基础行情+成交量
-    parser = SymbolQuotes(code_list=[(MARKET.SZ, "300385")], filter=custom_filter)
-    
-    # 方式3: 全字段模式（测试用）
-    parser = SymbolQuotes(code_list=[(MARKET.SZ, "300385")], filter=-1)
-    
-    # 获取结果
-    result = client.call(parser)
-    print(f"位图: {result['field_bitmap']}")
-    print(f"查询数量: {result['total']}")
-    print(f"数量: {result['count']}")
-    for stock in result['stocks']:
-        print(f"{stock['code']}: {stock['close']}")
-    ```
-    """
-    
-    def __init__(
-        self,
-        code_list: List[Tuple[MARKET | EX_MARKET, str]],
-        filter: int = 0
-    ):
-        """
-        初始化多股票行情查询
-        
-        Args:
-            code_list: 股票/标识列表，每个元素为 (市场, 标识符) 的元组
-                    例如: 
-                    - [(EX_MARKET.US_STOCK, "BOIL"), (EX_MARKET.HK_MAIN_BOARD, "00700")]
-                    - 标识符可以是股票代码或特殊标识如"BOIL"
-            filter: 字段过滤器（位图），控制返回哪些字段
-                   - 0: 使用默认bitmap（常用字段组合）
-                   - -1: 全字段模式（测试用）
-                   - 其他值: 自定义位图，可通过 fields_to_filter() 生成
-                     例如: filter = fields_to_filter('basic+volume')
-        """
-        
+class SymbolQuotes(BaseParser):
 
-        # 构建固定参数部分 (20字节) - 支持自定义bitmap
-        # SymbolQuotes 默认bitmap: ffbc81cc3f080300000000000000000000000000
-        # BoardMembersQuotes 默认bitmap: fffce1cc3f080301000000000000000000000000
-
-        if filter == 0:
-            # 默认位图：常用字段组合
-            pkg = bytearray.fromhex(SYMBOL_QUOTES_DEFAULT_HEX)
-        elif filter == -1:
-            # 全字段模式（测试用）
-            pkg = bytearray.fromhex(QUOTES_DEBUG_HEX)
-        elif filter == -99:
-            # 全字段模式（验证新字段使用）
-            pkg = bytearray.fromhex(QUOTES_DEBUG_ALL_HEX)
-        else:
-            # 根据 filter 整数值生成位图
-            pkg = bytearray(filter.to_bytes(20, 'little'))
-
-        self.body = pkg + struct.pack('H', len(code_list))
-        
+    def __init__(self, code_list: list[tuple[MARKET | EX_MARKET, str]], fields: FieldBit | PresetField | FieldSelection | list[FieldBit] = PresetField.COMMON):
+        self.body = build_bitmap(fields) + struct.pack('H', len(code_list))
         for market, code in code_list:
             self.body.extend(struct.pack('<H22s', market.value, code.encode('gbk')))
 
+    @override
+    def deserialize(self, data):
+        field_bitmap = data[:20]
+        total, row_count = struct.unpack("<IH", data[20:26])
 
+        # 检测新字段：对比请求位图和已知字段映射
+        known_max_bit = max(FIELD_BITMAP_MAP.keys()) if FIELD_BITMAP_MAP else -1
+        for bit_pos in range(known_max_bit + 1, 160):  # 20字节=160位
+            if field_bitmap[bit_pos // 8] >> (bit_pos % 8) & 1:
+                log.debug(f"[DEBUG] 位图中检测到未知字段 位{bit_pos}，需要分析其含义")
+        
+        stocks = []
+        quotes_field_count = int.from_bytes(field_bitmap, 'little').bit_count()
+        row_len = 68 + 4 * quotes_field_count
+        for i in range(row_count):
+            row_data = data[26 + i * row_len : 26 + (i + 1) * row_len]
+
+            market, symbol, name = struct.unpack("<H22s44s", row_data[:68])
+            # 目前MARKET 为 0 , 1, 2 
+            try:
+                market = MARKET(market) if market <= 3 else EX_MARKET(market)
+            except Exception:
+                log.error(f"解析市场信息出错: market={market}")
+                market = EX_MARKET.TEMP_STOCK
+
+            stock_dict = {
+                "market": market,
+                "symbol": symbol.decode("gbk", errors="ignore").replace("\x00", ""),
+                "name": name.decode("gbk", errors="ignore").replace("\x00", ""),
+            }
+
+            if quotes_field_count != 0:
+                index = 0
+                for i in range(160):
+                    if field_bitmap[i // 8] >> (i % 8) & 1:
+                        field_name, field_format, _ = FIELD_BITMAP_MAP.get(i, (f"unknown_field_{i}", '<f', "未知字段"))
+                        value_bytes = row_data[68 + (index * 4) : 68 + ((index + 1) * 4)]
+                        value, = struct.unpack(field_format, value_bytes)
+                        if field_name.startswith("unknown_") and field_format == '<f' and value != 0.0 and abs(value) < 1e-6:
+                            try:
+                                value, = struct.unpack('<i', value_bytes)
+                            except Exception:
+                                pass
+                        stock_dict[field_name] = value
+                        index += 1
+
+                # 特殊字段处理：格式化 ah_code
+                if stock_dict.get("ah_code"):
+                    market = stock_dict.get("market")
+                    ah_code_raw = stock_dict.get("ah_code")
+                    
+                    # 判断当前股票的市场类型
+                    if market in [MARKET.SZ, MARKET.SH, MARKET.BJ]:
+                        # 国内市场（A股）：ah_code 对应的是港股，需要格式化为5位，不足前面补0
+                        stock_dict["ah_code"] = str(ah_code_raw).zfill(5)
+                    else:
+                        # 港股市场：ah_code 对应的是A股，需要格式化为6位，不足前面补0
+                        stock_dict["ah_code"] = str(ah_code_raw).zfill(6)
+
+            stocks.append(stock_dict)
+
+        return {
+            "count": row_count,
+            "total": total,
+            "stocks": stocks,
+        }

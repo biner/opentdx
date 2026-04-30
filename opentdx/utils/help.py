@@ -1,11 +1,21 @@
 # coding=utf-8
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import struct
 
 from opentdx.const import EX_MARKET, MARKET
 from opentdx.enums import IndustryCode
 from opentdx.utils.log import log
+
+def combine_to_datetime(ymd, date_num, format_tdx_time=False):
+    date_str = str(ymd)
+    year, month, day = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
+    hours = date_num // 3600
+    minutes = (date_num % 3600) // 60
+    dt = datetime(year, month, day, hours, minutes)
+    if format_tdx_time and 0 <= dt.hour <= 5:
+        dt += timedelta(days=1)
+    return dt
 
 def query_market(code) -> MARKET | None:
     """
@@ -53,7 +63,7 @@ def exchange_board_code(board_symbol):
 def industry_to_board_symbol(industry_value:str) -> str:
     # 从83005提取出3005，然后拼接为X3005
     industry_str = str(industry_value)
-    suffix = industry_str[-4:]  # 获取后3位，如"005"
+    suffix = industry_str[-4:]  # 获取后4位，如"3005"
     key = f"X{suffix}"  # 拼接为"X3005"
     
     try:
@@ -181,7 +191,7 @@ def format_time(time_stamp):
 
 def unpack_futures(data, code_len: int = 23):
     if len(data) == 292 + code_len:
-        raise Exception('')
+        raise Exception("futures data length mismatch")
     
     market, code = struct.unpack(f'<B{code_len}s', data[:1 + code_len])
     active, pre_close, open, high, low, close, open_position, add_position, vol, curr_vol, amount, in_vol, out_vol, u14, hold_position = struct.unpack(f'<I5f4If4I', data[1 + code_len: 61 + code_len])
@@ -232,3 +242,79 @@ def unpack_futures(data, code_len: int = 23):
             'u2': u2,
             'u3': [u3, u4, u5, u6],
         }
+
+def unpack_by_type(unusual_type: int, data: bytearray) -> tuple[str, str]:
+    v1, v2, v3, v4 = struct.unpack('<B3f', data)
+    desc = ""
+    val = ""
+    if unusual_type == 0x03:
+        desc = f"主力{'买入' if v1 == 0x00 else '卖出'}"
+        val = f"{v2:.2f}/{v3:.2f}"
+    elif unusual_type == 0x04:
+        desc = "加速拉升"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x05:
+        desc = "加速下跌"
+    elif unusual_type == 0x06:
+        desc = "低位反弹"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x07:
+        desc = "高位回落"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x08:
+        desc = "撑杆跳高"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x09:
+        desc = "平台跳水"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x0a:
+        desc = f"单笔冲{'跌' if v2 < 0 else '涨'}"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x0b:
+        desc = f"区间放量{'平' if v3 == 0 else '跌' if v3 < 0 else '涨'}"
+        val = f"{v2:.1f}倍{'' if v3 == 0 else f'{v3*100:.2f}%'}"
+    elif unusual_type == 0x0c:
+        desc = "区间缩量"
+    elif unusual_type == 0x10:
+        desc = "大单托盘"
+        val = f"{v4:.2f}/{v3:.2f}"
+    elif unusual_type == 0x11:
+        desc = "大单压盘"
+        val = f"{v2:.2f}/{v3:.2f}"
+    elif unusual_type == 0x12:
+        desc = "大单锁盘"
+    elif unusual_type == 0x13:
+        desc = "竞价试买"
+        val = f"{v2:.2f}/{v3:.2f}"
+    elif unusual_type == 0x14:
+        sub_type, v2, v3 = struct.unpack('<Bff', data[1:10])
+        direction = "涨" if v1 == 0x00 else "跌"
+        if sub_type == 0x01:
+            desc = f"逼近{direction}停"
+        elif sub_type == 0x02:
+            desc = f"封{direction}停板"
+        elif sub_type == 0x04:
+            desc = f"封{direction}大减"
+        elif sub_type == 0x05:
+            desc = f"打开{direction}停"
+        val = f"{v2:.2f}/{v3:.2f}"
+    elif unusual_type == 0x15:
+        if v1 == 0x00:
+            desc = "尾盘??"
+        elif v1 == 0x01:
+            desc = "尾盘对倒"
+        elif v1 == 0x02:
+            desc = "尾盘拉升"
+        else:
+            desc = "尾盘打压"
+        val = f"{v2*100:.2f}%/{v3:.2f}"
+    elif unusual_type == 0x16:
+        desc = f"盘中{'弱' if v2 < 0x00 else '强'}势"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x1d:
+        desc = "急速拉升"
+        val = f"{v2*100:.2f}%"
+    elif unusual_type == 0x1e:
+        desc = "急速下跌"
+        val = f"{v2*100:.2f}%"
+    return desc, val

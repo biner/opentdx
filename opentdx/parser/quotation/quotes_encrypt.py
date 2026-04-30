@@ -1,6 +1,6 @@
 from datetime import time
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -8,10 +8,10 @@ from opentdx.utils.help import get_price
 
 @register_parser(0x547)
 class QuotesEncrypt(BaseParser):
-    def __init__(self, stocks: list[MARKET, str]):
+    def __init__(self, stocks: list[tuple[MARKET, str]]):
         count = len(stocks)
         if count <= 0:
-            raise Exception('stocks count must > 0')
+            raise ValueError('stocks count must > 0')
         self.body = bytearray(struct.pack('<H', count))
         
         for market, code in stocks:
@@ -72,8 +72,6 @@ class QuotesEncrypt(BaseParser):
                 
             u2, u3, u4 = struct.unpack('<HII', data[pos: pos + 10])
             pos += 10
-
-            # print(u1, u2, u3, u4)
 
             for _ in range(6):
                 a, pos = get_price(data, pos)

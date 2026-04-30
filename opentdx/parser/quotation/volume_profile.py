@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -10,7 +10,7 @@ from opentdx.utils.log import log
 @register_parser(0x51a)
 class VolumeProfile(BaseParser):
     def __init__(self, market: MARKET, code: str):
-        self.body = struct.pack(u'<H6s', market.value, code.encode('gbk'))
+        self.body = struct.pack('<H6s', market.value, code.encode('gbk'))
     
     @override
     def deserialize(self, data):
@@ -55,7 +55,6 @@ class VolumeProfile(BaseParser):
                 'vol': ask_vol,
             })
 
-        # 没明白是什么值
         unknown, = struct.unpack('<H', data[pos: pos + 2])
         pos += 2
         log.debug("volume_profile unknown: %s", unknown)
@@ -89,8 +88,8 @@ class VolumeProfile(BaseParser):
             'vol': vol,
             'cur_vol': cur_vol,
             'amount': amount,
-            'in_vol': s_vol, # 内盘
-            'out_vol': b_vol, # 外盘
+            'in_vol': s_vol,
+            'out_vol': b_vol,
             's_amount': s_amount,
             'open_amount': open_amount,
             'handicap': {

@@ -3,8 +3,9 @@ from datetime import date
 import pandas as pd
 # from opentdx.client import macQuotationClient as QuotationClient, macExQuotationClient as exQuotationClient
 from opentdx.client import exQuotationClient , QuotationClient 
-from opentdx.const import ADJUST, BLOCK_FILE_TYPE, CATEGORY, EX_CATEGORY, EX_MARKET, FILTER_TYPE, MARKET, PERIOD, EX_BOARD_TYPE, BOARD_TYPE, SORT_TYPE
-from opentdx.const import mac_hosts , mac_ex_hosts
+from opentdx.const import ADJUST, CATEGORY, EX_CATEGORY, EX_MARKET, MARKET, PERIOD, EX_BOARD_TYPE, BOARD_TYPE
+from opentdx.const import mac_hosts, mac_ex_hosts
+from opentdx.utils.bitmap import FieldBit, PresetField
 from opentdx.parser.ex_quotation import file, goods
 from opentdx.parser.quotation import server, stock
 from opentdx.utils.help import industry_to_board_symbol, ah_code_to_symbol, lot_size_to_symbol
@@ -66,12 +67,7 @@ if __name__ == "__main__":
     print(df)
             
     print("支持自定义字段 ohlc , 增加ah_code , 查询881394板块-券商板块")
-    # TODO bit 的方式,改造成传入 枚举LIST. 
-    ah_code_bit = 0x4a
-    lot_size_bit = 0x23
-    industry_bit = 0x1c
-    ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << ah_code_bit) | (1 << lot_size_bit) | (1 << industry_bit)
-    rs = client.get_board_members_quotes(board_symbol="881394",count=100, filter=ah_code_filter)
+    rs = client.get_board_members_quotes(board_symbol="881394", count=100, fields=PresetField.OHLC + FieldBit.AH_CODE + FieldBit.LOT_SIZE + FieldBit.INDUSTRY)
     df = pd.DataFrame(rs)
     
     if 'ah_code' in df.columns:  # 正确的检查列是否存在的方式
@@ -84,9 +80,7 @@ if __name__ == "__main__":
     
     print("支持自定义字段 ohlc , 增加ah_code , 查询880201板块-黑龙江板块")
 
-    industry_bit = 0x1c
-    ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << industry_bit)
-    rs = client.get_board_members_quotes(board_symbol="880201",count=100, filter=ah_code_filter)
+    rs = client.get_board_members_quotes(board_symbol="880201", count=100, fields=PresetField.OHLC + FieldBit.INDUSTRY)
     df = pd.DataFrame(rs)
 
     if 'industry' in df.columns:  # 正确的检查列是否存在的方式
@@ -97,8 +91,7 @@ if __name__ == "__main__":
 
     
     print("支持自定义字段 ohlc")
-    filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4)
-    rs = client.get_board_members_quotes(board_symbol=board_symbol,count=10, filter=filter)
+    rs = client.get_board_members_quotes(board_symbol=board_symbol, count=10, fields=PresetField.OHLC)
     df = pd.DataFrame(rs)
     print(df)
     
@@ -107,8 +100,7 @@ if __name__ == "__main__":
     
 
     print("支持自定义字段 ohlc , 增加ah_code , [HK0266] 反向查询A股代码")
-    ah_code_filter = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 0x4a)
-    rs = exClient.get_board_members_quotes(board_symbol="HK0266",count=10, filter=ah_code_filter)
+    rs = exClient.get_board_members_quotes(board_symbol="HK0266", count=10, fields=PresetField.OHLC + FieldBit.AH_CODE)
     df = pd.DataFrame(rs)
     print(df)
     
@@ -127,7 +119,7 @@ if __name__ == "__main__":
     
     print("查询香港主板")
     board_symbol = EX_CATEGORY.HSI
-    rs = exClient.get_board_members_quotes(board_symbol=board_symbol,count=10, filter=filter)
+    rs = exClient.get_board_members_quotes(board_symbol=board_symbol, count=10, fields=PresetField.OHLC + FieldBit.AH_CODE)
     df = pd.DataFrame(rs)
     print(f"查询香港主板 {board_symbol} 成员数量: {len(df)} 展示部分:")
     print(df[:3])

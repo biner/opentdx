@@ -1,14 +1,11 @@
-from __future__ import annotations
-
 from datetime import date
 import math
-from typing import Optional
-from opentdx._typing import override
+from typing import override
 
 from .baseStockClient import BaseStockClient, update_last_ack_time, _paginate, _normalize_code_list
 from .commonClientMixin import CommonClientMixin
 from opentdx.utils.block_reader import BlockReader, BlockReader_TYPE_FLAT
-from opentdx.const import BLOCK_FILE_TYPE, CATEGORY, FILTER_TYPE, PERIOD, MARKET, SORT_TYPE, ADJUST, main_hosts, mac_hosts
+from opentdx.const import BLOCK_FILE_TYPE, CATEGORY, FILTER_TYPE, PERIOD, MARKET, SORT_TYPE, ADJUST, main_hosts
 from opentdx.parser import quotation
 from opentdx.utils.log import log
 from opentdx.utils.cache import finance_cache
@@ -169,11 +166,11 @@ class QuotationClient(BaseStockClient, CommonClientMixin):
         return boards
 
     @update_last_ack_time
-    def get_stock_quotes_list(self, category: CATEGORY, start:int = 0, count: int = 80, sortType: SORT_TYPE = SORT_TYPE.CODE, reverse: bool = False, filter: Optional[list[FILTER_TYPE]] = None) -> list[dict]:
+    def get_stock_quotes_list(self, category: CATEGORY, start:int = 0, count: int = 80, sort_type: SORT_TYPE = SORT_TYPE.CODE, reverse: bool = False, filter: list[FILTER_TYPE] | None = None) -> list[dict]:
         if filter is None:
             filter = []
         results = _paginate(
-            lambda s, c: self.call(quotation.QuotesList(category, s, c, sortType, reverse, filter)),
+            lambda s, c: self.call(quotation.QuotesList(category, s, c, sort_type, reverse, filter)),
             80, count, start,
         )
         return self._adjust_quotes_list(results)

@@ -1,15 +1,14 @@
 import struct
-from typing import Optional
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import CATEGORY, FILTER_TYPE, MARKET, SORT_TYPE
 from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.utils.help import format_time, get_price
 
-@register_parser(0x54b) # TODO: 
+@register_parser(0x54b)
 class QuotesList(BaseParser):
-    def __init__(self, category: CATEGORY, start: int = 0, count: int = 0x50, sortType: SORT_TYPE = SORT_TYPE.CODE, reverse: bool = False, filter: Optional[list[FILTER_TYPE]] = None):
-        sort_reverse = 0 if sortType == SORT_TYPE.CODE else 2 if reverse else 1
+    def __init__(self, category: CATEGORY, start: int = 0, count: int = 0x50, sort_type: SORT_TYPE = SORT_TYPE.CODE, reverse: bool = False, filter: list[FILTER_TYPE] | None = None):
+        sort_reverse = 0 if sort_type == SORT_TYPE.CODE else 2 if reverse else 1
 
         filter_raw = 0
         if filter is None:
@@ -17,7 +16,7 @@ class QuotesList(BaseParser):
         for filter_type in filter:
             filter_raw |= filter_type.value
 
-        self.body = struct.pack('<9H', category.value, sortType.value, start, count,  sort_reverse, 5, filter_raw, 1, 0)
+        self.body = struct.pack('<9H', category.value, sort_type.value, start, count,  sort_reverse, 5, filter_raw, 1, 0)
     @override
     def deserialize(self, data):
         block, count = struct.unpack('<HH', data[:4])
@@ -33,7 +32,7 @@ class QuotesList(BaseParser):
             high, pos = get_price(data, pos)
             low, pos = get_price(data, pos)
             server_time, pos = get_price(data, pos)
-            neg_price, pos = get_price(data, pos) # 盘后交易量
+            neg_price, pos = get_price(data, pos)
             vol, pos = get_price(data, pos)
             cur_vol, pos = get_price(data, pos)
 
@@ -42,8 +41,8 @@ class QuotesList(BaseParser):
 
             in_vol, pos = get_price(data, pos)
             out_vol, pos = get_price(data, pos)
-            s_amount, pos = get_price(data, pos) #reversed_bytes2
-            open_amount, pos = get_price(data, pos) #reversed_bytes3
+            s_amount, pos = get_price(data, pos)
+            open_amount, pos = get_price(data, pos)
 
             bids = []
             asks = []
@@ -81,8 +80,8 @@ class QuotesList(BaseParser):
                 'vol': vol,
                 'cur_vol': cur_vol,
                 'amount': amount,
-                'in_vol': in_vol, # 内盘
-                'out_vol': out_vol, # 外盘
+                'in_vol': in_vol,
+                'out_vol': out_vol,
                 's_amount': s_amount,
                 'open_amount': open_amount,
                 'handicap': {
@@ -90,12 +89,12 @@ class QuotesList(BaseParser):
                     'ask': asks,
                 },
                 'unknown': format(unknown, '016b'),
-                'rise_speed': rise_speed, # 涨速
-                'short_turnover': short_turnover, # 短换手
-                'min2_amount': min2_amount, # 2分钟金额
-                'opening_rush': opening_rush, # 开盘抢筹
-                'vol_rise_speed': vol_rise_speed, # 量涨速
-                'depth': depth, # 委比
-                'active': active1, # 活跃度
+                'rise_speed': rise_speed,
+                'short_turnover': short_turnover,
+                'min2_amount': min2_amount,
+                'opening_rush': opening_rush,
+                'vol_rise_speed': vol_rise_speed,
+                'depth': depth,
+                'active': active1,
             })
         return stocks

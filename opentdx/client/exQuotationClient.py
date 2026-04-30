@@ -74,22 +74,16 @@ class exQuotationClient(BaseStockClient, CommonClientMixin):
 
     @update_last_ack_time
     def get_table(self):
-        start = 0
-        result = ''
-        while True:
-            _, count, context = self.call(ex_quotation.Table(start))
-            start += count
-            result += context
-            if count <= 0:
-                break
-        return result
+        return self._fetch_all_text(ex_quotation.Table)
 
     @update_last_ack_time
     def get_table_detail(self):
-        start = 0
-        result = ''
+        return self._fetch_all_text(ex_quotation.TableDetail)
+
+    def _fetch_all_text(self, fetch_cls):
+        start, result = 0, ''
         while True:
-            _, count, context = self.call(ex_quotation.TableDetail(start))
+            _, count, context = self.call(fetch_cls(start))
             start += count
             result += context
             if count <= 0:

@@ -1,6 +1,6 @@
 from datetime import time
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import EX_MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -34,7 +34,6 @@ class TickChart(BaseParser):
     @override
     def deserialize(self, data):
         market, code, count = struct.unpack('<B31sH', data[:34])
-        # print(EX_MARKET(market), code.decode('gbk').replace('\x00', ''))
 
         charts = []
         for i in range(count):

@@ -1,9 +1,4 @@
-
-from __future__ import annotations
-
-
 from datetime import date
-from typing import Optional
 
 from opentdx.client.exQuotationClient import exQuotationClient
 from opentdx.client.quotationClient import QuotationClient
@@ -39,7 +34,7 @@ class TdxClient:
         '''
         获取股票数量
         Args:
-             market: MARKET - 市场类型 (SZ: 深圳, SH: 上海, BJ: 北交所)
+            market: MARKET - 市场类型 (SZ: 深圳, SH: 上海, BJ: 北交所)
         Return: 
             count: int      - 股票数量
         '''
@@ -284,14 +279,14 @@ class TdxClient:
         '''
         return self.q_client().get_stock_top_board(category)
     
-    def stock_quotes_list(self, category: CATEGORY, start:int = 0, count: int = 80, sortType: SORT_TYPE = SORT_TYPE.CODE, reverse: bool = False, filter: Optional[list[FILTER_TYPE]] = None) -> list[dict]:
+    def stock_quotes_list(self, category: CATEGORY, start:int = 0, count: int = 80, sort_type: SORT_TYPE = SORT_TYPE.CODE, reverse: bool = False, filter: list[FILTER_TYPE] | None = None) -> list[dict]:
         '''
         获取各类股票行情列表
         Args:
             category: CATEGORY        - 市场分类（SH: 上证A, SZ: 深证A, A: A股, B: B股, KCB: 科创板, BJ: 北证A, CYB: 创业板）
             start: int                - 起始位置
             count: int                - 获取数量
-            sortType: SORT_TYPE       - 排序类型
+            sort_type: SORT_TYPE       - 排序类型
             reverse: bool             - 倒序排序
             filter: list[FILTER_TYPE] - 过滤类型
         Return: 
@@ -328,7 +323,7 @@ class TdxClient:
                 - depth: int          - 委比
                 - active: int         - 活跃度
         '''
-        return self.q_client().get_stock_quotes_list(category, start, count, sortType, reverse, filter)
+        return self.q_client().get_stock_quotes_list(category, start, count, sort_type, reverse, filter)
     
     def stock_quotes(self, code_list: MARKET | list[tuple[MARKET, str]], code: str = None) -> list[dict]:
         '''

@@ -1,5 +1,5 @@
 import struct
-from opentdx._typing import override
+from typing import override
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.utils.help import to_datetime

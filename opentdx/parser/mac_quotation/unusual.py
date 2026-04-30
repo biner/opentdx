@@ -6,11 +6,10 @@ from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
 from opentdx.utils.help import unpack_by_type
 
-
-@register_parser(0x563)
-class Unusual(BaseParser): # 主力监控
+@register_parser(0x1237)
+class Unusual(BaseParser): # 主力监控，不需要Login()
     def __init__(self, market: MARKET, start: int, count: int = 600):
-        self.body = struct.pack('<HII', market.value, start, count)
+        self.body = struct.pack('<H H 2x H 2x H 5H', market.value, start, count, 1, 200, 30, 40, 50, 200)
 
     @override
     def deserialize(self, data):
@@ -30,4 +29,13 @@ class Unusual(BaseParser): # 主力监控
                 'value': value,
                 'unusual_type': unusual_type,
             })
+
+        binary_length = 2 + count * 32
+        text_bytes = data[binary_length:]
+        text_list = text_bytes.decode('gbk', errors='ignore').strip(',').split(',')
+
+        for i in range(len(results)):
+            if i < len(text_list):
+                results[i]['name'] = text_list[i]
+
         return results

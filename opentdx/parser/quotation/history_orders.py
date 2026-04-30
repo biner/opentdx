@@ -1,6 +1,6 @@
 from datetime import date
 import struct
-from opentdx._typing import override
+from typing import override
 
 from opentdx.const import MARKET
 from opentdx.parser.baseParser import BaseParser, register_parser
@@ -11,7 +11,7 @@ from opentdx.utils.help import get_price
 class HistoryOrders(BaseParser):
     def __init__(self, market: MARKET, code: str, date: date):
         date = date.year * 10000 + date.month * 100 + date.day
-        self.body = struct.pack(u'<IB6s', date, market.value, code.encode('gbk'))
+        self.body = struct.pack('<IB6s', date, market.value, code.encode('gbk'))
 
     @override
     def deserialize(self, data):
