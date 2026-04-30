@@ -8,7 +8,7 @@ from opentdx.parser.baseParser import BaseParser, register_parser
 
 
 @register_parser(0x1218, 2)
-class SymbolZJLX(BaseParser):
+class SymbolCapitalFlow(BaseParser):
     def __init__(self, symbol: str, market: MARKET):
         self.body = struct.pack("<H8s16x21s", market.value, symbol.encode("gbk"), "Stock_ZJLX".encode("ascii"))
 
