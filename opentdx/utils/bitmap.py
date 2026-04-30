@@ -11,8 +11,8 @@ FIELD_BITMAP_MAP = {
     0x3: ("low", '<f', "最低价"),
     0x4: ("close", '<f', "收盘价"),
     0x5: ("vol", '<I', "成交量"),
-    0x6: ("vol_ratio", '<f', "量比"),
-    0x7: ("amount", '<f', "总金额（单位：元，注意：港股单位不同）"),
+     0x6: ("vol_ratio", '<f', "量比"),
+     0x7: ("amount", '<f', "总金额(元)"),  # CSV显示为万元，需÷10000
     
     # 扩展字段（位0x8-0xF）
     0x8: ("inside_volume", '<I', "内盘"),  # ✅ 920627验证：CSV内盘=20999, bitmap=20999
@@ -46,7 +46,7 @@ FIELD_BITMAP_MAP = {
     0x20: ("buy_price_limit", '<f', "涨停价"),  
     0x21: ("sell_price_limit", '<f', "跌停价"), 
     0x22: ("unknown_34", '<I', "（港股通常为15）"),
-    0x23: ("lot_size", '<I', "每手股数(港股)"), # 国内股票为板块id, 1 => 880201 14=> 880214
+    0x23: ("lot_size", '<I', "所属地区板块(A股)/每手股数(港股)"), # 国内股票为板块id 需from help import lot_size_to_symbol, 1 => 880201 14=> 880214
     0x24: ("pre_ipov", '<f', "昨IPOV)"), #ETF-昨日IPOV
     0x25: ("speed_pct", '<f', "涨速"), 
     0x26: ("avg_price", '<f', "均价"),  
@@ -57,7 +57,7 @@ FIELD_BITMAP_MAP = {
     0x2a: ("unknown_36_amount_related", '<f', "未知字段36（与amount相关0.90，需验证）"),  # ⚠️ 中等相关
     0x2b: ("flag_kcb", '<I', "科创板标志"), #688开头30101 #300开头50101
     0x2c: ("flag_bj", '<I', "北交所标志"),
-    0x2d: ("unknown_field_39_vol_related", '<f', "未知字段39（与vol相关0.99，高度相关）"),
+     0x2d: ("circulating_capital_z", '<f', "流通股本Z（单位：万股）"),  # ✅ 经ohlc.csv验证：黑龙江CSV=233.98亿, bitmap=2339843(万股)
 
     
     0x30: ("pe_ttm", '<f', "市盈率TTM"),
@@ -86,12 +86,23 @@ FIELD_BITMAP_MAP = {
     
     # 新发现的扩展字段（位0x50-0x57）- 通过 000100 数据发现
 
-    0x57: ("open_amount", '<f', "开盘金额（元）"),  # ✅ 000100验证：CSV=1322.18万, bitmap=13221810元
-
+      0x57: ("open_amount", '<f', "开盘金额(元)"),  # ✅ CSV显示为万元，需÷10000
+    0x58: ("annual_limit_up_days", '<i', "年涨停天数"), 
     0x59: ("activity", '<I', "活跃度"), 
-    0x5c: ("consecutive_up_days", '<i', "连涨天"), # 正数代表连涨，负数代表连跌 
-    
-    0x6a: ("amount_2m", '<f', "2分钟金额"), 
+     0x5c: ("consecutive_up_days", '<i', "连涨天"), # 正数代表连涨，负数代表连跌 
+     0x5d: ("limit_up_count", '<I', "涨停数"),  # ✅ ohlc.csv验证：10/10完美匹配
+     0x5e: ("limit_down_count", '<I', "跌停数"),  # ✅ ohlc.csv验证：涨停!=跌停时区分明确
+     0x5f: ("industry_sub", '<I', "行业二级分类"), 
+     0x68: ("vol_speed_pct", '<f', "量涨速%"),  # ✅ ohlc.csv验证：10/10匹配
+     0x69: ("short_turnover_pct", '<f', "短换手%"),  # ✅ ohlc.csv验证：10/10匹配
+      0x6a: ("amount_2m", '<f', "2分钟金额(元)"),  # CSV显示为万元，需÷10000
+     
+     0x7a: ("auction_vol_ratio", '<f', "竞价量比"), 
+     0x85: ("avg_price_copy", '<f', "均价(备份)"),  # ✅ 与avg_price(0x26)值一致
+     0x88: ("up_count", '<I', "上涨家数"),  # ✅ 涨跌数18|19中的18对应此字段
+     0x8b: ("down_count", '<I', "下跌家数"),  # ✅ 涨跌数18|19中的19对应此字段
+     0x8e: ("constant_neg_one", '<i', "恒为-1"),  # 所有标的值均为-1，可能是占位符
+
 }
 
 class FieldBit(IntEnum):
@@ -117,7 +128,7 @@ class FieldBit(IntEnum):
     SERVER_UPDATE_DATE = 0x13
     SERVER_UPDATE_TIME = 0x14
     LOT_SIZE_INFO = 0x15
-    UNKNOWN_22 = 0x16
+    # 0x16: 保留（原UNKNOWN_22已移除）
     DIVIDEND_YIELD = 0x17
     BID_VOLUME = 0x18
     ASK_VOLUME = 0x19
@@ -140,12 +151,16 @@ class FieldBit(IntEnum):
     UNKNOWN_36_AMOUNT_RELATED = 0x2a
     FLAG_KCB = 0x2b
     FLAG_BJ = 0x2c
-    UNKNOWN_FIELD_39_VOL_RELATED = 0x2d
+    CIRCULATING_CAPITAL_Z = 0x2d
+    # 0x2e-0x2f: 保留
     PE_TTM = 0x30
     PE_STATIC = 0x31
+    # 0x32-0x37: 保留
     UNKNOWN_CLOSE_PRICE = 0x38
+    # 0x39-0x3a: 保留
     CHANGE_20D_PCT = 0x3b
     YTD_PCT = 0x3c
+    # 0x3d-0x3f: 保留
     MTD_PCT = 0x40
     CHANGE_1Y_PCT = 0x41
     PREV_CHANGE_PCT = 0x42
@@ -153,14 +168,34 @@ class FieldBit(IntEnum):
     CHANGE_60D_PCT = 0x44
     CHANGE_5D_PCT = 0x45
     CHANGE_10D_PCT = 0x46
+    # 0x47: 保留
     LOW_COPY = 0x48
     LOW_COPY2 = 0x49
     AH_CODE = 0x4a
     UNKNOWN_CODE = 0x4b
+    # 0x4c-0x56: 保留
     OPEN_AMOUNT = 0x57
+    ANNUAL_LIMIT_UP_DAYS = 0x58
     ACTIVITY = 0x59
+    # 0x5a-0x5b: 保留
     CONSECUTIVE_UP_DAYS = 0x5c
+    LIMIT_UP_COUNT = 0x5d  # 涨停数
+    LIMIT_DOWN_COUNT = 0x5e  # 跌停数
+    INDUSTRY_SUB = 0x5f
+    # 0x60-0x67: 保留
+    VOL_SPEED_PCT = 0x68  # 量涨速%
+    SHORT_TURNOVER_PCT = 0x69  # 短换手%
     AMOUNT_2M = 0x6a
+    # 0x6b-0x84: 保留
+    AVG_PRICE_COPY = 0x85  # 均价(备份)
+    # 0x86-0x87: 保留
+    UP_COUNT = 0x88  # 上涨家数
+    # 0x89-0x8a: 保留
+    DOWN_COUNT = 0x8b  # 下跌家数
+    # 0x8c-0x8d: 保留
+    CONSTANT_NEG_ONE = 0x8e  # 恒为-1
+    # 0x8f-0x99: 保留
+    AUCTION_VOL_RATIO = 0x7a
     
     @property
     def info(self):
@@ -239,7 +274,14 @@ class PresetField(Enum):
     CHANGE = (FieldBit.CHANGE_5D_PCT, FieldBit.CHANGE_10D_PCT, FieldBit.CHANGE_20D_PCT, FieldBit.CHANGE_60D_PCT,
                 FieldBit.YTD_PCT, FieldBit.MTD_PCT, FieldBit.PREV_CHANGE_PCT)
     LIMIT = (FieldBit.BUY_PRICE_LIMIT, FieldBit.SELL_PRICE_LIMIT)
-
+    
+    # 新增预定义字段集合
+    TIME_SERIES = (FieldBit.SERVER_UPDATE_DATE, FieldBit.SERVER_UPDATE_TIME)  # 服务器更新时间
+    MARKET_FLAGS = (FieldBit.FLAG_KCB, FieldBit.FLAG_BJ)  # 市场标志（科创板、北交所）
+    INDUSTRY_INFO = (FieldBit.INDUSTRY, FieldBit.INDUSTRY_SUB, FieldBit.INDUSTRY_CHANGE_UP)  # 行业信息
+    PRICE_LIMITS = (FieldBit.BUY_PRICE_LIMIT, FieldBit.SELL_PRICE_LIMIT, FieldBit.AVG_PRICE)  # 价格限制和均价
+    BOARD_STATS = (FieldBit.LIMIT_UP_COUNT, FieldBit.LIMIT_DOWN_COUNT, FieldBit.UP_COUNT, FieldBit.DOWN_COUNT)  # 板块统计
+    
     ENHANCED = (FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.FLOAT_SHARES, FieldBit.ACTIVITY)
     AH_CODE = (FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL, FieldBit.AH_CODE, FieldBit.LOT_SIZE, FieldBit.INDUSTRY)
 
@@ -247,10 +289,11 @@ class PresetField(Enum):
     COMMON = (FieldBit.PRE_CLOSE, FieldBit.OPEN, FieldBit.HIGH, FieldBit.LOW, FieldBit.CLOSE, FieldBit.VOL,
                 FieldBit.VOL_RATIO, FieldBit.AMOUNT, FieldBit.TOTAL_SHARES, FieldBit.FLOAT_SHARES, FieldBit.EPS,
                 FieldBit.NET_ASSETS, FieldBit.UNKONW_ACTION_PRICE, FieldBit.TOTAL_MARKET_CAP_AB, FieldBit.PE_DYNAMIC,
-                FieldBit.LOT_SIZE_INFO, FieldBit.UNKNOWN_22, FieldBit.DIVIDEND_YIELD, FieldBit.LAST_VOLUME,
+                FieldBit.LOT_SIZE_INFO, FieldBit.DIVIDEND_YIELD, FieldBit.LAST_VOLUME,
                 FieldBit.TURNOVER, FieldBit.SOME_BITMAP, FieldBit.DECIMAL_POINT, FieldBit.BUY_PRICE_LIMIT,
                 FieldBit.SELL_PRICE_LIMIT, FieldBit.UNKNOWN_34, FieldBit.LOT_SIZE, FieldBit.PRE_IPOV,
-                FieldBit.SPEED_PCT, FieldBit.FLAG_KCB, FieldBit.PE_TTM, FieldBit.PE_STATIC, FieldBit.UNKNOWN_CLOSE_PRICE)
+                FieldBit.SPEED_PCT, FieldBit.FLAG_KCB, FieldBit.PE_TTM, FieldBit.PE_STATIC, FieldBit.UNKNOWN_CLOSE_PRICE,
+                FieldBit.VOL_SPEED_PCT, FieldBit.SHORT_TURNOVER_PCT, FieldBit.CIRCULATING_CAPITAL_Z)
     ALL = tuple(FieldBit)
 
     def __add__(self, other) -> FieldSelection:
