@@ -286,7 +286,8 @@ class CommonClientMixin:
         msg = f"TDX 板块成员：{board_symbol} 查询总量{count}"
         log.debug(msg)
         
-        rs = self.call(BoardMembersQuotes(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order))
+        rs = self.call(BoardMembers(board_symbol=board_symbol, start=0, page_size=count, sort_type=sort_type, sort_order=sort_order))
+        # total = rs["total"]
 
         return rs
     
