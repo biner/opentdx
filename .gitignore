@@ -4,6 +4,7 @@ dist/
 *.egg-info/
 *.pyc
 venv/
+.venv/
 .vscode/
 pip_install.sh
 demo*.py
